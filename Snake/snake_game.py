@@ -221,142 +221,102 @@ class SnakeGameAI:
                     BLOCK_SIZE * scale_y + 1
                 )
                 pygame.draw.rect(surface, color, rect)
+                
+                # Add subtle inner border for "square" look
+                border_color = (0, 0, 0, 20) # Transparent black
+                s = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+                pygame.draw.rect(s, border_color, s.get_rect(), 1)
+                surface.blit(s, rect)
 
-        # Draw Snake with Interpolation (Continuous Body)
-        # Helper for interpolation
-        def lerp(p1, p2, t):
-            return p1 + (p2 - p1) * t
-
-        # 1. Collect all interpolated points for the snake body
+        # Draw Snake with Interpolation (Rail Logic)
+        # We calculate the visual head and tail positions, and connect them through static body segments.
+        
         snake_points = []
-        for i, pt in enumerate(self.snake):
-            curr_x = pt.x
-            curr_y = pt.y
+        
+        # 1. Calculate Visual Head
+        # Head moves from snake[1] (prev_head) to snake[0] (curr_head)
+        # Note: In our logic, snake[0] is the new head. snake[1] is the old head.
+        if len(self.snake) > 1:
+            prev_head = self.snake[1]
+            curr_head = self.snake[0]
             
-            # Interpolate if we have history
-            if i < len(self.prev_snake):
-                prev_pt = self.prev_snake[i]
-                dist = ((curr_x - prev_pt.x)**2 + (curr_y - prev_pt.y)**2)**0.5
-                if dist < BLOCK_SIZE * 2: 
-                    d_x = lerp(prev_pt.x, curr_x, interpolation)
-                    d_y = lerp(prev_pt.y, curr_y, interpolation)
-                else:
-                    d_x = curr_x
-                    d_y = curr_y
+            # Lerp
+            vh_x = prev_head.x + (curr_head.x - prev_head.x) * interpolation
+            vh_y = prev_head.y + (curr_head.y - prev_head.y) * interpolation
+            
+            visual_head = (vh_x, vh_y)
+        else:
+            visual_head = (self.snake[0].x, self.snake[0].y)
+            
+        snake_points.append(visual_head)
+        
+        # 2. Add Static Body Points (All points between head and tail)
+        # These are snake[1] to snake[-2] inclusive
+        
+        # We need to determine if we are growing (Tail stationary) or moving (Tail moving).
+        is_growing = len(self.snake) > len(self.prev_snake)
+        
+        # Intermediate points: snake[1] to snake[-2]
+        for pt in self.snake[1:-1]:
+             snake_points.append((pt.x, pt.y))
+             
+        # 3. Calculate Visual Tail
+        if is_growing:
+            # Tail is stationary at the end
+            snake_points.append((self.snake[-1].x, self.snake[-1].y))
+        else:
+            # Tail is moving from prev_snake[-1] to snake[-1]
+            if len(self.prev_snake) > 0:
+                prev_tail = self.prev_snake[-1]
+                curr_tail = self.snake[-1]
+                
+                # Lerp
+                vt_x = prev_tail.x + (curr_tail.x - prev_tail.x) * interpolation
+                vt_y = prev_tail.y + (curr_tail.y - prev_tail.y) * interpolation
+                
+                snake_points.append((vt_x, vt_y))
             else:
-                d_x = curr_x
-                d_y = curr_y
+                 snake_points.append((self.snake[-1].x, self.snake[-1].y))
 
-            # Convert to screen coordinates (center of the block)
-            screen_x = start_x + d_x * scale_x + (BLOCK_SIZE * scale_x) / 2
-            screen_y = start_y + d_y * scale_y + (BLOCK_SIZE * scale_y) / 2
-            snake_points.append((screen_x, screen_y))
-
-        # 2. Draw the continuous body with Rounded Corners (Spline-like)
+        # Convert to Screen Coordinates
+        screen_points = []
+        for pt in snake_points:
+            sx = start_x + pt[0] * scale_x + (BLOCK_SIZE * scale_x) / 2
+            sy = start_y + pt[1] * scale_y + (BLOCK_SIZE * scale_y) / 2
+            screen_points.append((sx, sy))
+            
+        # Draw the Path with Rounded Corners
+        # Since vertices are static grid centers (mostly), we can draw thick lines with circle caps.
+        # This automatically creates rounded corners!
+        
         snake_color = BLUE1 
         body_width = int(BLOCK_SIZE * scale_x * 0.9) 
         
-        # Helper to generate quadratic bezier points for a corner
-        def get_corner_points(p_prev, p_curr, p_next, radius=10):
-            # Vector 1: prev -> curr
-            v1_x = p_curr[0] - p_prev[0]
-            v1_y = p_curr[1] - p_prev[1]
-            len1 = (v1_x**2 + v1_y**2)**0.5
+        if len(screen_points) >= 2:
+            # Draw segments
+            for i in range(len(screen_points) - 1):
+                p1 = screen_points[i]
+                p2 = screen_points[i+1]
+                
+                # Draw thick line
+                pygame.draw.line(surface, snake_color, p1, p2, body_width)
+                
+                # Draw circle at p1 (joint)
+                pygame.draw.circle(surface, snake_color, p1, body_width // 2)
             
-            # Vector 2: curr -> next
-            v2_x = p_next[0] - p_curr[0]
-            v2_y = p_next[1] - p_curr[1]
-            len2 = (v2_x**2 + v2_y**2)**0.5
-            
-            if len1 < 0.1 or len2 < 0.1: # Too short to round
-                return [p_curr]
-            
-            # Limit radius to half the shortest segment to avoid overlap
-            actual_radius = min(radius, len1/2, len2/2)
-            
-            # Calculate start and end of curve
-            t1 = actual_radius / len1
-            start_x = p_curr[0] - v1_x * t1
-            start_y = p_curr[1] - v1_y * t1
-            
-            t2 = actual_radius / len2
-            end_x = p_curr[0] + v2_x * t2
-            end_y = p_curr[1] + v2_y * t2
-            
-            # Generate Quadratic Bezier points
-            points = []
-            steps = 10
-            for t in [i/steps for i in range(steps+1)]:
-                # B(t) = (1-t)^2 * P0 + 2(1-t)t * P1 + t^2 * P2
-                bx = (1-t)**2 * start_x + 2*(1-t)*t * p_curr[0] + t**2 * end_x
-                by = (1-t)**2 * start_y + 2*(1-t)*t * p_curr[1] + t**2 * end_y
-                points.append((bx, by))
-            
-            return points
-
-        # Generate smooth path
-        smooth_path = []
-        if len(snake_points) < 3:
-            smooth_path = snake_points # Not enough points to curve
+            # Draw circle at last point
+            pygame.draw.circle(surface, snake_color, screen_points[-1], body_width // 2)
         else:
-            # Add start point
-            smooth_path.append(snake_points[0])
-            
-            for i in range(1, len(snake_points) - 1):
-                p_prev = snake_points[i-1]
-                p_curr = snake_points[i]
-                p_next = snake_points[i+1]
-                
-                # Check for corner (dot product logic or just coordinates)
-                # Since grid aligned, if x changes then y changes, it's a corner.
-                # If straight line (dx1 != 0 and dx2 != 0, dy1=0, dy2=0), no corner.
-                dx1 = p_curr[0] - p_prev[0]
-                dy1 = p_curr[1] - p_prev[1]
-                dx2 = p_next[0] - p_curr[0]
-                dy2 = p_next[1] - p_curr[1]
-                
-                # Cross product to check collinearity (0 means collinear)
-                cross = dx1 * dy2 - dx2 * dy1
-                
-                if abs(cross) < 1.0: # Collinear (straight)
-                    smooth_path.append(p_curr)
-                else: # Corner
-                    # Generate curve points
-                    curve = get_corner_points(p_prev, p_curr, p_next, radius=BLOCK_SIZE*scale_x*0.6)
-                    # We replace p_curr with the curve
-                    # Note: We need to connect from last point to start of curve?
-                    # Yes, but since we append points sequentially, drawing lines between them covers gaps.
-                    smooth_path.extend(curve)
-            
-            # Add end point
-            smooth_path.append(snake_points[-1])
-
-        # Draw the smooth path
-        # Use many circles to create a thick smooth "tube"
-        # This handles joints perfectly without artifacts
-        step_draw = max(1, int(scale_x * 2)) # Optimize drawing step
-        
-        # Draw circles along the path
-        for i in range(len(smooth_path) - 1):
-            p1 = smooth_path[i]
-            p2 = smooth_path[i+1]
-            
-            dist = ((p2[0]-p1[0])**2 + (p2[1]-p1[1])**2)**0.5
-            if dist == 0: continue
-            
-            steps = max(1, int(dist / step_draw))
-            for j in range(steps + 1):
-                t = j / steps
-                x = p1[0] + (p2[0] - p1[0]) * t
-                y = p1[1] + (p2[1] - p1[1]) * t
-                pygame.draw.circle(surface, snake_color, (x, y), body_width // 2)
+            # Just a dot
+            for p in screen_points:
+                 pygame.draw.circle(surface, snake_color, p, body_width // 2)
 
         # 3. Draw Eyes on Head
-        if smooth_path:
+        if len(screen_points) > 1:
             # Recalculate head orientation based on smooth path first segment
             # This makes eyes look in the direction of the curve
-            head_center = smooth_path[0]
-            next_pt = smooth_path[1] if len(smooth_path) > 1 else head_center
+            head_center = screen_points[0]
+            next_pt = screen_points[1] if len(screen_points) > 1 else head_center
             
             dx = next_pt[0] - head_center[0]
             dy = next_pt[1] - head_center[1]

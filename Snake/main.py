@@ -5,20 +5,27 @@ import numpy as np
 from agent import Agent
 from snake_game import SnakeGameAI
 from visualizer import Visualizer
+from network import NetworkManager
+import time
 
 # Config
 WINDOW_W = 1600
 WINDOW_H = 900
 INITIAL_FPS = 30 
+SERVER_URL = "http://localhost:5000"
 
 def main():
     global WINDOW_W, WINDOW_H
     pygame.init()
     # Enable resizing
     screen = pygame.display.set_mode((WINDOW_W, WINDOW_H), pygame.RESIZABLE)
-    pygame.display.set_caption("Snake AI - Educational Demo (Use UP/DOWN to control speed)")
+    pygame.display.set_caption("Snake AI - Remote Controlled (Dashboard Only)")
     clock = pygame.time.Clock()
     fps = INITIAL_FPS
+    
+    # Initialize Network Manager
+    print(f"Connecting to dashboard at {SERVER_URL}...")
+    network = NetworkManager(url=SERVER_URL)
 
     # Layout Config (Initial)
     # Use proportional layout instead of fixed pixels for better adaptability
@@ -61,6 +68,27 @@ def main():
 
     running = True
     while running:
+        # Network Sync (Receive Settings)
+        settings = network.get_settings()
+        if settings:
+            fps = settings.get('fps', fps)
+            paused = settings.get('paused', paused)
+        
+        # Network Sync (Receive Commands)
+        commands = network.get_commands()
+        for cmd in commands:
+            print(f"Received command: {cmd}")
+            if cmd == "RESET":
+                for g in games:
+                    g.reset()
+                agent.n_games = 0
+            elif cmd == "SAVE_MODEL":
+                agent.model.save()
+            elif cmd.startswith("SET_EPSILON_"):
+                try:
+                    agent.epsilon = int(cmd.split("_")[2])
+                except: pass
+
         # Time Management
         current_time = pygame.time.get_ticks()
         dt = current_time - last_time
@@ -75,6 +103,7 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                network.stop()
             elif event.type == pygame.VIDEORESIZE:
                 # Handle resizing
                 WINDOW_W, WINDOW_H = event.w, event.h
@@ -87,12 +116,9 @@ def main():
                 DRAW_GAME_H = WINDOW_H // ROWS
                 
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP:
-                    fps = min(fps + 10, 120)
-                elif event.key == pygame.K_DOWN:
-                    fps = max(fps - 10, 5)
+                # Removed local control for FPS/Pause as requested
                 # Mode Switching
-                elif event.key == pygame.K_1:
+                if event.key == pygame.K_1:
                     focused_game_idx = 0
                 elif event.key == pygame.K_2:
                     focused_game_idx = 1
@@ -106,8 +132,6 @@ def main():
                     focused_game_idx = 5
                 elif event.key == pygame.K_TAB:
                     dashboard_mode = (dashboard_mode + 1) % 2 # Toggle modes
-                elif event.key == pygame.K_SPACE:
-                    paused = not paused
                 elif event.key == pygame.K_s:
                     agent.model.save()
                     print("Model saved manually!")
@@ -117,22 +141,18 @@ def main():
                 if event.button == 1: # Left Click
                     action = visualizer.handle_click(event.pos)
                     if action:
-                        if action == "SPEED_UP":
-                            fps = min(fps + 10, 120)
-                        elif action == "SPEED_DOWN":
-                            fps = max(fps - 10, 5)
-                        elif action.startswith("SET_MODE_"):
+                        # Removed local control actions for speed/pause
+                        if action.startswith("SET_MODE_"):
                             dashboard_mode = int(action.split("_")[-1])
                         elif action.startswith("FOCUS_"):
                             focused_game_idx = int(action.split("_")[-1])
-                        elif action == "TOGGLE_PAUSE":
-                            paused = not paused
                         elif action == "SAVE_MODEL":
                             agent.model.save()
         
         # Display FPS & Mode
-        status_str = "PAUSED" if paused else "RUNNING"
-        pygame.display.set_caption(f"Snake AI - {status_str} | Speed: {fps} TPS | Mode: {dashboard_mode} | Focus: Game {focused_game_idx+1}")
+        status_str = "PAUSED (REMOTE)" if paused else "RUNNING"
+        conn_str = "ONLINE" if network.connected else "OFFLINE"
+        pygame.display.set_caption(f"Snake AI - {status_str} | Speed: {fps} TPS | Focus: Game {focused_game_idx+1} | Server: {conn_str}")
 
         # Update & Train Logic
         # Run logic steps ONLY if accumulator > step_interval
@@ -187,6 +207,17 @@ def main():
                 
                 # --- LOGIC UPDATE END ---
                 
+                # Network Sync (Send State) - sending only focused game
+                focused_game = games[focused_game_idx]
+                state_data = {
+                    "score": focused_game.score,
+                    "n_games": agent.n_games, # Global games count
+                    "snake": [{"x": p.x, "y": p.y} for p in focused_game.snake],
+                    "food": {"x": focused_game.food.x, "y": focused_game.food.y} if focused_game.food else None,
+                    "fps": fps
+                }
+                network.update_state(state_data)
+
                 # Break if too many steps to avoid freeze (spiral of death)
                 if steps_processed > 5:
                     accumulator = 0 # Discard lag
@@ -198,60 +229,31 @@ def main():
         # Calculate Interpolation Alpha (0.0 to 1.0)
         # If paused, alpha should be static (1.0 or whatever)
         alpha = accumulator / step_interval if (step_interval > 0 and not paused) else 1.0
-        if alpha > 1.0: alpha = 1.0
         
-        screen.fill((20, 20, 20)) # Dark background
+        # Draw everything
+        screen.fill((0, 0, 0)) # Clear screen
+        
+        # Draw Left Panel (Games)
+        for i, game in enumerate(games):
+            row = i // COLS
+            col = i % COLS
+            x = col * DRAW_GAME_W
+            y = row * DRAW_GAME_H
+            
+            # Highlight focused game
+            if i == focused_game_idx:
+                pygame.draw.rect(screen, (255, 255, 0), (x, y, DRAW_GAME_W, DRAW_GAME_H), 2)
+            
+            game.draw(screen, x, y, DRAW_GAME_W, DRAW_GAME_H, interpolation=alpha)
 
-        # Draw Games
-        if dashboard_mode == 0: # Focus Mode -> Draw One Big Game
-            focused_game = games[focused_game_idx]
-            # Draw it full size in left panel
-            focused_game.draw(screen, 0, 0, LEFT_PANEL_W, WINDOW_H, interpolation=alpha)
-            
-            # Overlay score
-            font = pygame.font.SysFont('Arial', 32, bold=True)
-            score_text = font.render(f"Score: {focused_game.score}", True, (0, 0, 0)) # Black text for visibility
-            screen.blit(score_text, (20, 20))
-            
-            # Label
-            label_text = font.render(f"FOCUSED AGENT #{focused_game_idx+1}", True, (255, 215, 0))
-            screen.blit(label_text, (20, WINDOW_H - 50))
-            
-        else: # Analytics Mode -> Draw Grid
-            for i, game in enumerate(games):
-                # Calculate position
-                col = i % COLS
-                row = i // COLS
-                x_offset = col * DRAW_GAME_W
-                y_offset = row * DRAW_GAME_H
-                
-                # Draw border
-                game.draw(screen, x_offset, y_offset, DRAW_GAME_W, DRAW_GAME_H, interpolation=alpha)
-                
-                # Highlight focused game border
-                border_color = (255, 215, 0) if i == focused_game_idx else (60, 60, 60)
-                border_width = 4 if i == focused_game_idx else 2
-                pygame.draw.rect(screen, border_color, (x_offset, y_offset, DRAW_GAME_W, DRAW_GAME_H), border_width)
-                
-                # Draw individual score
-                font = pygame.font.SysFont('Arial', 18, bold=True)
-                score_color = (20, 20, 20) # Dark text for visibility on light green background
-                score_text = font.render(f"Score: {game.score}", True, score_color) 
-                screen.blit(score_text, (x_offset + 10, y_offset + 10))
-                
-                # Draw label
-                label_text = font.render(f"#{i+1}", True, score_color)
-                screen.blit(label_text, (x_offset + DRAW_GAME_W - 30, y_offset + 10))
-
-        # Draw Dashboard
-        visualizer.draw_dashboard(screen, agent, LEFT_PANEL_W, 0, RIGHT_PANEL_W, WINDOW_H, focused_activations, dashboard_mode, focused_game_idx, paused, show_help)
+        # Draw Right Panel (Visualizer)
+        visualizer.draw_dashboard(screen, agent, LEFT_PANEL_W, 0, RIGHT_PANEL_W, WINDOW_H, focused_activations, dashboard_mode, focused_game_idx, paused)
 
         pygame.display.flip()
-        
-        # Limit Render FPS (e.g. 60 or 120) to avoid 100% CPU usage
-        clock.tick(60)
+        clock.tick(120) # Limit loop speed (not game logic speed)
 
     pygame.quit()
+    network.stop()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
