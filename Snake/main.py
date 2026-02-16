@@ -54,6 +54,7 @@ def main():
     
     # Game Control State
     paused = False
+    show_help = False
 
     # Define focused_activations outside loop to avoid UnboundLocalError
     focused_activations = None
@@ -243,7 +244,7 @@ def main():
                 screen.blit(label_text, (x_offset + DRAW_GAME_W - 30, y_offset + 10))
 
         # Draw Dashboard
-        visualizer.draw_dashboard(screen, agent, LEFT_PANEL_W, 0, RIGHT_PANEL_W, WINDOW_H, focused_activations, dashboard_mode, focused_game_idx, paused)
+        visualizer.draw_dashboard(screen, agent, LEFT_PANEL_W, 0, RIGHT_PANEL_W, WINDOW_H, focused_activations, dashboard_mode, focused_game_idx, paused, show_help)
 
         pygame.display.flip()
         

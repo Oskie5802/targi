@@ -34,7 +34,28 @@ class Visualizer:
                 return action
         return None
 
-    def draw_dashboard(self, surface, agent, x, y, w, h, focused_activations, mode, focused_game_idx, paused):
+    def _draw_button(self, surface, rect, text, action, is_active=False, is_hovered=False, base_color=BTN_NORMAL, active_color=BTN_ACTIVE, text_color=WHITE):
+        color = active_color if is_active else base_color
+        if is_hovered and not is_active:
+            # Lighten the color slightly
+            color = (min(color[0]+20, 255), min(color[1]+20, 255), min(color[2]+20, 255))
+        
+        # Shadow
+        shadow_rect = rect.move(2, 2)
+        pygame.draw.rect(surface, (0, 0, 0, 100), shadow_rect, border_radius=8)
+        
+        # Button Body
+        pygame.draw.rect(surface, color, rect, border_radius=8)
+        pygame.draw.rect(surface, GRAY, rect, 1, border_radius=8)
+        
+        # Text
+        txt_surf = self.font.render(text, True, text_color)
+        txt_rect = txt_surf.get_rect(center=rect.center)
+        surface.blit(txt_surf, txt_rect)
+        
+        self.buttons[f"btn_{action}"] = (rect, action)
+
+    def draw_dashboard(self, surface, agent, x, y, w, h, focused_activations, mode, focused_game_idx, paused, show_help=False):
         self.buttons = {} # Reset buttons for this frame (simple immediate mode GUI)
 
         # Draw background for dashboard
@@ -47,6 +68,11 @@ class Visualizer:
         
         # UI Controls (Tabs & Buttons)
         self._draw_controls(surface, x + 20, y + 140, w - 40, mode, focused_game_idx, paused)
+
+        # Help Overlay (if active)
+        if show_help:
+            self._draw_help(surface, x, y, w, h)
+            return # Skip drawing content if help is open
 
         # Content Area Start Y
         content_y = y + 230
@@ -97,110 +123,118 @@ class Visualizer:
     def _draw_controls(self, surface, x, y, w, current_mode, focused_game_idx, paused):
         # Layout: Two Rows
         # Row 1: Mode Tabs (Left) | Speed (Right)
-        # Row 2: Focus Buttons (Left, if Mode 0) | Play/Pause & Save (Right)
+        # Row 2: Focus Buttons (Left, if Mode 0) | Play/Pause, Save, Help (Right)
         
         row1_y = y
-        row2_y = y + 40
+        row2_y = y + 45
         
+        mouse_pos = pygame.mouse.get_pos()
+
         # --- ROW 1 ---
         
         # 1. Mode Tabs (Left)
         tab_w = 120
-        tab_h = 30
+        tab_h = 35
         modes = ["Focus View", "Analytics"]
         for i, label in enumerate(modes):
             bx = x + i * (tab_w + 10)
             rect = pygame.Rect(bx, row1_y, tab_w, tab_h)
-            
             is_active = (i == current_mode)
-            color = BTN_ACTIVE if is_active else BTN_NORMAL
-            
-            mouse_pos = pygame.mouse.get_pos()
-            if rect.collidepoint(mouse_pos) and not is_active:
-                color = BTN_HOVER
-                
-            pygame.draw.rect(surface, color, rect, border_radius=5)
-            pygame.draw.rect(surface, GRAY, rect, 1, border_radius=5)
-            
-            text = self.font.render(label, True, WHITE if is_active else GRAY)
-            text_rect = text.get_rect(center=rect.center)
-            surface.blit(text, text_rect)
-            self.buttons[f"mode_{i}"] = (rect, f"SET_MODE_{i}")
+            is_hover = rect.collidepoint(mouse_pos)
+            self._draw_button(surface, rect, label, f"SET_MODE_{i}", is_active, is_hover)
 
         # 3. Speed Controls (Right aligned in Row 1)
-        spd_x = x + w - 100
+        spd_x = x + w - 110
+        
+        # Speed Label
+        lbl = self.small_font.render("Speed", True, GRAY)
+        surface.blit(lbl, (spd_x - 40, row1_y + 10))
+
+        # Down
+        down_rect = pygame.Rect(spd_x, row1_y, 40, 35)
+        self._draw_button(surface, down_rect, "-", "SPEED_DOWN", False, down_rect.collidepoint(mouse_pos))
         
         # Up
-        up_rect = pygame.Rect(spd_x, row1_y, 40, 30)
-        pygame.draw.rect(surface, BTN_NORMAL, up_rect, border_radius=5)
-        pygame.draw.rect(surface, GRAY, up_rect, 1, border_radius=5)
-        txt = self.font.render("+", True, WHITE)
-        surface.blit(txt, txt.get_rect(center=up_rect.center))
-        self.buttons["speed_up"] = (up_rect, "SPEED_UP")
+        up_rect = pygame.Rect(spd_x + 45, row1_y, 40, 35)
+        self._draw_button(surface, up_rect, "+", "SPEED_UP", False, up_rect.collidepoint(mouse_pos))
         
-        # Down
-        down_rect = pygame.Rect(spd_x + 50, row1_y, 40, 30)
-        pygame.draw.rect(surface, BTN_NORMAL, down_rect, border_radius=5)
-        pygame.draw.rect(surface, GRAY, down_rect, 1, border_radius=5)
-        txt = self.font.render("-", True, WHITE)
-        surface.blit(txt, txt.get_rect(center=down_rect.center))
-        self.buttons["speed_down"] = (down_rect, "SPEED_DOWN")
-        
-        lbl = self.small_font.render("Speed", True, GRAY)
-        # Position label above speed controls? Or to the left?
-        # Let's put it to the left to save vertical space or above if there's room.
-        # Above is fine.
-        surface.blit(lbl, (spd_x + 25, row1_y - 12))
-
         # --- ROW 2 ---
 
         # 2. Focus Selectors (Left aligned in Row 2) - Only show in Mode 0
         if current_mode == 0:
-            lbl = self.small_font.render("Focus Game:", True, GRAY)
-            surface.blit(lbl, (x, row2_y - 12))
+            lbl = self.small_font.render("Focus:", True, GRAY)
+            surface.blit(lbl, (x, row2_y + 10))
             
             for i in range(6):
-                size = 30
-                bx = x + i * (size + 5)
+                size = 35
+                bx = x + 40 + i * (size + 5)
                 rect = pygame.Rect(bx, row2_y, size, size)
-                
                 is_focused = (i == focused_game_idx)
-                color = (255, 215, 0) if is_focused else BTN_NORMAL 
                 
-                mouse_pos = pygame.mouse.get_pos()
-                if rect.collidepoint(mouse_pos) and not is_focused:
-                    color = BTN_HOVER
-                    
-                pygame.draw.rect(surface, color, rect, border_radius=5)
-                pygame.draw.rect(surface, GRAY, rect, 1, border_radius=5)
+                # Custom colors for focus buttons
+                color = (255, 215, 0) if is_focused else BTN_NORMAL
+                text_col = BLACK if is_focused else WHITE
                 
-                text_color = BLACK if is_focused else WHITE
-                text = self.font.render(str(i+1), True, text_color)
-                text_rect = text.get_rect(center=rect.center)
-                surface.blit(text, text_rect)
-                self.buttons[f"focus_{i}"] = (rect, f"FOCUS_{i}")
+                self._draw_button(surface, rect, str(i+1), f"FOCUS_{i}", is_focused, rect.collidepoint(mouse_pos), base_color=BTN_NORMAL, active_color=(255, 215, 0), text_color=text_col)
 
-        # 4. Play/Pause & Save (Right aligned in Row 2)
-        ctrl_x = x + w - 140 # Adjust based on button widths
+        # 4. Play/Pause, Save, Help (Right aligned in Row 2)
+        # Right to Left: Help, Save, Pause
         
-        # Pause Button
-        pause_rect = pygame.Rect(ctrl_x, row2_y, 60, 30)
-        color = RED if paused else GREEN
-        pygame.draw.rect(surface, color, pause_rect, border_radius=5)
-        pygame.draw.rect(surface, GRAY, pause_rect, 1, border_radius=5)
-        
-        label = "RESUME" if paused else "PAUSE"
-        txt = self.small_font.render(label, True, WHITE)
-        surface.blit(txt, txt.get_rect(center=pause_rect.center))
-        self.buttons["pause"] = (pause_rect, "TOGGLE_PAUSE")
-        
+        # Help Button
+        help_rect = pygame.Rect(x + w - 50, row2_y, 50, 35)
+        self._draw_button(surface, help_rect, "?", "TOGGLE_HELP", False, help_rect.collidepoint(mouse_pos), base_color=(100, 100, 150))
+
         # Save Button
-        save_rect = pygame.Rect(ctrl_x + 70, row2_y, 60, 30)
-        pygame.draw.rect(surface, BLUE, save_rect, border_radius=5)
-        pygame.draw.rect(surface, GRAY, save_rect, 1, border_radius=5)
-        txt = self.small_font.render("SAVE", True, WHITE)
-        surface.blit(txt, txt.get_rect(center=save_rect.center))
-        self.buttons["save"] = (save_rect, "SAVE_MODEL")
+        save_rect = pygame.Rect(x + w - 120, row2_y, 60, 35)
+        self._draw_button(surface, save_rect, "SAVE", "SAVE_MODEL", False, save_rect.collidepoint(mouse_pos), base_color=BLUE)
+
+        # Pause Button
+        pause_rect = pygame.Rect(x + w - 200, row2_y, 70, 35)
+        label = "RESUME" if paused else "PAUSE"
+        color = RED if paused else GREEN
+        self._draw_button(surface, pause_rect, label, "TOGGLE_PAUSE", False, pause_rect.collidepoint(mouse_pos), base_color=color)
+
+    def _draw_help(self, surface, x, y, w, h):
+        # Draw a semi-transparent overlay
+        overlay = pygame.Surface((w, h), pygame.SRCALPHA)
+        overlay.fill((20, 20, 30, 240))
+        surface.blit(overlay, (x, y))
+        
+        # Close button
+        close_rect = pygame.Rect(x + w - 40, y + 10, 30, 30)
+        pygame.draw.rect(surface, RED, close_rect, border_radius=5)
+        txt = self.font.render("X", True, WHITE)
+        surface.blit(txt, txt.get_rect(center=close_rect.center))
+        self.buttons["close_help"] = (close_rect, "TOGGLE_HELP")
+        
+        # Content
+        lines = [
+            "User Guide:",
+            "",
+            "Controls:",
+            "- UP/DOWN: Adjust Game Speed (TPS)",
+            "- SPACE: Pause / Resume",
+            "- TAB: Toggle View Mode (Focus / Analytics)",
+            "- 1-6: Switch Focused Agent (in Focus Mode)",
+            "- S: Save Model Manually",
+            "",
+            "Neural Network Inputs:",
+            "- D_Str/R/L: Danger Straight/Right/Left (Binary)",
+            "- L/R/U/D: Moving Left/Right/Up/Down (One-hot)",
+            "- F_L/R/U/D: Food is Left/Right/Up/Down (Binary)",
+            "",
+            "Dashboard:",
+            "- Score History: Raw score per game",
+            "- Mean Score: Average of last 100 games",
+            "- Loss Trend: Training error (lower is better)",
+        ]
+        
+        start_y = y + 50
+        for i, line in enumerate(lines):
+            color = YELLOW if i == 0 or line.endswith(":") else WHITE
+            font = self.title_font if i == 0 else self.font
+            txt = font.render(line, True, color)
+            surface.blit(txt, (x + 30, start_y + i * 25))
 
 
     def _draw_neural_net(self, surface, activations, rect, focused_game_idx):
@@ -348,8 +382,8 @@ class Visualizer:
         lbl = self.font.render(title, True, color1)
         surface.blit(lbl, (rect.x, rect.y - 20))
 
-        # Draw Box
-        pygame.draw.rect(surface, (20, 20, 25), rect)
+        # Draw Box with gradient background (simulated)
+        pygame.draw.rect(surface, (25, 25, 30), rect)
         pygame.draw.rect(surface, (60, 60, 70), rect, 1)
 
         if not data1 or len(data1) < 2:
@@ -365,7 +399,7 @@ class Visualizer:
         
         # Helper to map value to y
         def get_pt(i, val, data_len):
-            x = rect.x + (i / (data_len - 1)) * rect.width
+            x = rect.x + (i / max(1, data_len - 1)) * rect.width
             # 10% padding top and bottom
             h = rect.height * 0.8
             y_base = rect.bottom - rect.height * 0.1
@@ -376,6 +410,17 @@ class Visualizer:
         points1 = [get_pt(i, v, len(d1)) for i, v in enumerate(d1)]
         if len(points1) > 1:
             pygame.draw.lines(surface, color1, False, points1, 2)
+            
+            # Fill under curve (simple)
+            if len(points1) > 2:
+                # Create a polygon: points1 + bottom-right + bottom-left
+                poly_points = points1 + [(points1[-1][0], rect.bottom-2), (points1[0][0], rect.bottom-2)]
+                # Create surface for transparency
+                s = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+                # Offset points to 0,0 for surface
+                local_poly = [(p[0]-rect.x, p[1]-rect.y) for p in poly_points]
+                pygame.draw.polygon(s, (*color1, 50), local_poly)
+                surface.blit(s, (rect.x, rect.y))
 
         # Draw Data 2 (e.g. Mean Score)
         if d2 and len(d2) > 1:
