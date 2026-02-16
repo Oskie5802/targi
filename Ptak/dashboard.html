@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnakeAI & Ptak Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #1e1e2e; color: #cdd6f4; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .card { background-color: #313244; border: none; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .card-header { background-color: #45475a; border-bottom: 1px solid #585b70; color: #fff; font-weight: bold; }
+        .nav-tabs .nav-link { color: #a6adc8; border: none; }
+        .nav-tabs .nav-link.active { background-color: #313244; color: #89b4fa; border-bottom: 2px solid #89b4fa; }
+        .snake-canvas { border: 2px solid #585b70; background: #11111b; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
+        .media-preview { width: 100%; height: 180px; object-fit: cover; border-radius: 4px; background: #181825; }
+        .status-badge { font-size: 0.9em; padding: 0.5em 1em; }
+        .btn-control { width: 100%; margin-bottom: 10px; }
+        .stat-box { background: #45475a; padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-value { font-size: 1.5em; font-weight: bold; color: #89b4fa; }
+        .stat-label { font-size: 0.8em; color: #bac2de; }
+        iframe { border: none; width: 100%; height: 600px; background: white; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark mb-4 p-3" style="background-color: #181825 !important;">
+        <div class="container-fluid d-flex justify-content-between align-items-center">
+            <span class="navbar-brand mb-0 h1"><i class="fas fa-gamepad me-2"></i>SnakeAI & Ptak System Dashboard</span>
+            <div>
+                <span id="server-status" class="badge bg-success me-2">Server Online</span>
+                <span id="snake-status" class="badge bg-secondary">Snake Offline</span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+        <ul class="nav nav-tabs mb-4" id="mainTabs">
+            <li class="nav-item">
+                <a class="nav-link active" data-bs-toggle="tab" href="#snake-tab"><i class="fas fa-snake me-2"></i>Snake AI</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#ptak-tab"><i class="fas fa-crow me-2"></i>Ptak System</a>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- SNAKE AI TAB -->
+            <div class="tab-pane fade show active" id="snake-tab">
+                <div class="row">
+                    <!-- Left: Game View -->
+                    <div class="col-lg-7">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between">
+                                <span>Live Feed (Focus Game)</span>
+                                <small id="fps-display">30 FPS</small>
+                            </div>
+                            <div class="card-body text-center p-4">
+                                <canvas id="snake-canvas" width="640" height="420" class="snake-canvas mw-100"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- Stats Row -->
+                        <div class="row mb-3">
+                            <div class="col-md-3 col-6 mb-2">
+                                <div class="stat-box">
+                                    <div class="stat-value" id="score-val">0</div>
+                                    <div class="stat-label">CURRENT SCORE</div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-6 mb-2">
+                                <div class="stat-box">
+                                    <div class="stat-value" id="games-val">0</div>
+                                    <div class="stat-label">GENERATION</div>
+                                </div>
+                            </div>
+                             <div class="col-md-3 col-6 mb-2">
+                                <div class="stat-box">
+                                    <div class="stat-value" id="epsilon-val">0</div>
+                                    <div class="stat-label">EPSILON (Randomness)</div>
+                                </div>
+                            </div>
+                             <div class="col-md-3 col-6 mb-2">
+                                <div class="stat-box">
+                                    <div class="stat-value" id="conn-ping">--</div>
+                                    <div class="stat-label">PING (ms)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Controls -->
+                    <div class="col-lg-5">
+                        <div class="card">
+                            <div class="card-header">Control Panel</div>
+                            <div class="card-body">
+                                <h6 class="text-muted mb-3">Game Speed</h6>
+                                <div class="d-flex align-items-center mb-4">
+                                    <i class="fas fa-tachometer-alt me-3"></i>
+                                    <input type="range" class="form-range flex-grow-1" min="5" max="120" id="fps-slider" oninput="updateFPSDisplay()" onchange="sendSettings()">
+                                    <span class="ms-3 badge bg-primary" id="fps-val-badge">30</span>
+                                </div>
+
+                                <h6 class="text-muted mb-3">Actions</h6>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <button class="btn btn-warning btn-control" onclick="togglePause()" id="pause-btn">
+                                            <i class="fas fa-pause me-2"></i>Pause
+                                        </button>
+                                    </div>
+                                    <div class="col-6">
+                                        <button class="btn btn-danger btn-control" onclick="sendCommand('RESET')">
+                                            <i class="fas fa-redo me-2"></i>Reset All
+                                        </button>
+                                    </div>
+                                    <div class="col-6">
+                                        <button class="btn btn-success btn-control" onclick="sendCommand('SAVE_MODEL')">
+                                            <i class="fas fa-save me-2"></i>Save Model
+                                        </button>
+                                    </div>
+                                    <div class="col-6">
+                                        <button class="btn btn-info btn-control" onclick="setEpsilon(0)">
+                                            <i class="fas fa-brain me-2"></i>Exploit Only (Ep=0)
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-header">Log</div>
+                            <div class="card-body bg-dark text-monospace" id="log-console" style="height: 150px; overflow-y: auto; font-size: 0.8em; color: #0f0;">
+                                <div>System initialized...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PTAK SYSTEM TAB -->
+            <div class="tab-pane fade" id="ptak-tab">
+                <div class="row">
+                    <!-- Left: Public View Preview -->
+                    <div class="col-lg-6">
+                        <div class="card h-100">
+                            <div class="card-header bg-success text-white">
+                                <i class="fas fa-tv me-2"></i>Public Display Preview (Leaderboard)
+                            </div>
+                            <div class="card-body p-0">
+                                <iframe src="/leaderboard" title="Leaderboard Preview"></iframe>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Media Manager -->
+                    <div class="col-lg-6">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white d-flex justify-content-between">
+                                <span><i class="fas fa-images me-2"></i>Media Database</span>
+                                <button class="btn btn-sm btn-light" onclick="loadMedia()"><i class="fas fa-sync"></i> Refresh</button>
+                            </div>
+                            <div class="card-body">
+                                <div class="row" id="media-grid" style="max-height: 600px; overflow-y: auto;">
+                                    <!-- Media items -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- LOGGER ---
+        function log(msg) {
+            const c = document.getElementById('log-console');
+            const d = document.createElement('div');
+            d.innerText = `> ${msg}`;
+            c.appendChild(d);
+            c.scrollTop = c.scrollHeight;
+        }
+
+        // --- SNAKE LOGIC ---
+        const canvas = document.getElementById('snake-canvas');
+        const ctx = canvas.getContext('2d');
+        let snakeState = { fps: 30, paused: false };
+        let lastPing = Date.now();
+
+        function drawSnake(state) {
+            if (!state || !state.snake) return;
+            
+            // Clear
+            ctx.fillStyle = '#11111b';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Scaling
+            // Logic width is 480x320, Canvas is 640x420. Keep aspect ratio or just stretch slightly?
+            // Let's scale to fit.
+            const scaleX = canvas.width / 480; // Assuming logic width from server
+            const scaleY = canvas.height / 320; 
+
+            // Food
+            if (state.food) {
+                ctx.fillStyle = '#f38ba8'; // Red-ish
+                ctx.fillRect(state.food.x * scaleX, state.food.y * scaleY, 20 * scaleX, 20 * scaleY);
+            }
+            
+            // Snake
+            state.snake.forEach((segment, index) => {
+                ctx.fillStyle = index === 0 ? '#89b4fa' : '#585b70'; // Blue Head, Gray Body
+                ctx.fillRect(segment.x * scaleX, segment.y * scaleY, 20 * scaleX, 20 * scaleY);
+            });
+            
+            // Update UI
+            document.getElementById('score-val').innerText = state.score || 0;
+            document.getElementById('games-val').innerText = state.n_games || 0;
+            document.getElementById('snake-status').innerText = 'Snake Online';
+            document.getElementById('snake-status').className = 'badge bg-success';
+            document.getElementById('conn-ping').innerText = Date.now() - lastPing;
+        }
+
+        function pollSnake() {
+            lastPing = Date.now();
+            fetch('/api/snake/state')
+                .then(r => r.json())
+                .then(data => {
+                    if (data && data.snake) {
+                        drawSnake(data);
+                        // Also update FPS slider if not dragging
+                        if(!document.getElementById('fps-slider').matches(':active')) {
+                             // Optional: sync slider with server state if needed
+                        }
+                    } else {
+                        document.getElementById('snake-status').innerText = 'Snake Offline';
+                        document.getElementById('snake-status').className = 'badge bg-secondary';
+                    }
+                })
+                .catch(e => {
+                    document.getElementById('snake-status').innerText = 'Snake Offline';
+                    document.getElementById('snake-status').className = 'badge bg-danger';
+                });
+        }
+
+        function updateFPSDisplay() {
+            const val = document.getElementById('fps-slider').value;
+            document.getElementById('fps-val-badge').innerText = val;
+        }
+
+        function sendSettings() {
+            const fps = document.getElementById('fps-slider').value;
+            log(`Setting FPS to ${fps}`);
+            fetch('/api/snake/settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ fps: parseInt(fps) })
+            });
+        }
+
+        function togglePause() {
+            snakeState.paused = !snakeState.paused;
+            const btn = document.getElementById('pause-btn');
+            btn.innerHTML = snakeState.paused ? '<i class="fas fa-play me-2"></i>Resume' : '<i class="fas fa-pause me-2"></i>Pause';
+            btn.className = snakeState.paused ? "btn btn-success btn-control" : "btn btn-warning btn-control";
+            
+            log(`Setting Pause to ${snakeState.paused}`);
+            fetch('/api/snake/settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ paused: snakeState.paused })
+            });
+        }
+
+        function sendCommand(cmd) {
+            log(`Sending command: ${cmd}`);
+            fetch('/api/snake/command', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ command: cmd })
+            });
+        }
+        
+        function setEpsilon(val) {
+            sendCommand(`SET_EPSILON_${val}`);
+        }
+
+        setInterval(pollSnake, 100);
+
+        // --- PTAK MEDIA LOGIC ---
+        function loadMedia() {
+            log('Loading media...');
+            fetch('/api/media')
+                .then(r => r.json())
+                .then(files => {
+                    const grid = document.getElementById('media-grid');
+                    grid.innerHTML = '';
+                    if(files.length === 0) {
+                        grid.innerHTML = '<div class="col-12 text-center text-muted">No media found</div>';
+                        return;
+                    }
+                    files.forEach(file => {
+                        const col = document.createElement('div');
+                        col.className = 'col-6 col-md-4 mb-3';
+                        let content = '';
+                        if (file.endsWith('.webm') || file.endsWith('.mp4')) {
+                            content = `<video src="/uploads/${file}" controls class="media-preview"></video>`;
+                        } else {
+                            content = `<img src="/uploads/${file}" class="media-preview">`;
+                        }
+                        
+                        col.innerHTML = `
+                            <div class="card bg-dark border-secondary">
+                                ${content}
+                                <div class="card-footer p-2 text-center">
+                                    <small class="d-block text-truncate text-muted mb-2" title="${file}">${file}</small>
+                                    <button class="btn btn-sm btn-outline-danger w-100" onclick="deleteMedia('${file}')">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                        grid.appendChild(col);
+                    });
+                });
+        }
+
+        function deleteMedia(filename) {
+            if(!confirm(`Are you sure you want to delete ${filename}?`)) return;
+            fetch(`/api/media/${filename}`, { method: 'DELETE' })
+                .then(() => {
+                    log(`Deleted ${filename}`);
+                    loadMedia();
+                });
+        }
+
+        // Init
+        loadMedia();
+        
+        // Initial fetch to sync button state
+        fetch('/api/snake/settings').then(r=>r.json()).then(s => {
+            if(s.paused) {
+                snakeState.paused = true;
+                const btn = document.getElementById('pause-btn');
+                btn.innerHTML = '<i class="fas fa-play me-2"></i>Resume';
+                btn.className = "btn btn-success btn-control";
+            }
+            if(s.fps) {
+                document.getElementById('fps-slider').value = s.fps;
+                updateFPSDisplay();
+            }
+        });
+
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

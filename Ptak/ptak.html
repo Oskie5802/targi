@@ -534,6 +534,77 @@
     .hidden {
       display: none !important;
     }
+
+    /* Leaderboard */
+    .leaderboard-container {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(12px);
+      padding: 1rem;
+      border: 4px solid rgb(193, 193, 255);
+      color: white;
+      text-align: center;
+      z-index: 25;
+      min-width: 200px;
+      pointer-events: auto;
+    }
+
+    .leaderboard-container h3 {
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+      color: #ffd500;
+      text-shadow: 2px 2px 0px #000;
+    }
+
+    .leaderboard-list {
+      list-style: none;
+      padding: 0;
+      font-size: 0.8rem;
+    }
+
+    .leaderboard-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px dashed rgba(255,255,255,0.3);
+      padding-bottom: 2px;
+    }
+
+    .name-input-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      gap: 10px;
+    }
+
+    #playerNameInput {
+      background: rgba(0, 0, 0, 0.5);
+      border: 2px solid white;
+      color: white;
+      font-size: 1.2rem;
+      text-align: center;
+      width: 200px;
+      padding: 10px;
+      text-transform: uppercase;
+    }
+
+    #submitNameButton {
+      background-color: #22d3ee;
+      color: black;
+      border: 2px solid white;
+      cursor: pointer;
+      font-weight: bold;
+      padding: 10px 20px;
+      transition: all 0.2s;
+    }
+    
+    #submitNameButton:hover {
+      background-color: #06b6d4;
+      transform: scale(1.05);
+    }
   </style>
 </head>
 <body>
@@ -581,6 +652,14 @@
       <!-- HUD Overlay -->
       <div class="hud-overlay">
         
+        <!-- Leaderboard -->
+        <div id="leaderboard" class="leaderboard-container font-retro">
+          <h3>TOP SCORES</h3>
+          <ul id="leaderboardList" class="leaderboard-list">
+            <!-- Items will be injected here -->
+          </ul>
+        </div>
+
         <!-- Live Score -->
         <div id="liveScore" class="score-display font-retro hidden">0</div>
         
@@ -621,6 +700,12 @@
             <p id="finalScore" class="final-score-value font-retro">0</p>
           </div>
           
+          <div id="nameInputSection" class="name-input-section hidden">
+            <p class="final-score-label font-retro" style="font-size: 0.8rem;">WPISZ IMIĘ:</p>
+            <input type="text" id="playerNameInput" class="font-retro" maxlength="10">
+            <button id="submitNameButton" class="font-retro">ZAPISZ (ENTER)</button>
+          </div>
+
           <div class="restart-section">
             <!-- Recharging State -->
             <div id="rechargingState" class="recharging-container">
@@ -657,6 +742,221 @@
     let score = 0;
     let canRestart = true;
     let isInitialized = false;
+    let waitingForName = false;
+    let leaderboard = [];
+
+    // Media Recording State
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let snapshots = [];
+    let gameStartTime = 0;
+    let snapshotInterval = null;
+
+    // ==========================================
+    // LEADERBOARD SYSTEM (LOCAL SERVER)
+    // ==========================================
+    async function loadLeaderboard() {
+      try {
+        const response = await fetch('/api/scores?limit=5');
+        if (!response.ok) throw new Error('Network response was not ok');
+        
+        const data = await response.json();
+        if (data) {
+          leaderboard = data;
+          updateLeaderboardDisplay();
+        }
+      } catch (e) {
+        console.error("Failed to load leaderboard from server", e);
+        // Fallback to local storage if server is down
+        try {
+            const stored = localStorage.getItem('wingman_leaderboard_fallback');
+            if (stored) {
+                leaderboard = JSON.parse(stored);
+                updateLeaderboardDisplay();
+            }
+        } catch (localErr) {
+            console.error("Local fallback error", localErr);
+        }
+      }
+    }
+
+    function updateLeaderboardDisplay() {
+      const list = document.getElementById('leaderboardList');
+      if (!list) return;
+      list.innerHTML = '';
+      
+      // Data from server is already sorted, but if we fallback to local...
+      leaderboard.sort((a, b) => b.score - a.score);
+
+      leaderboard.forEach((entry, index) => {
+        const li = document.createElement('li');
+        li.className = 'leaderboard-item';
+        li.innerHTML = `
+          <span>${index + 1}. ${entry.name}</span>
+          <span>${entry.score}</span>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    async function handleNameSubmit() {
+      const input = document.getElementById('playerNameInput');
+      const name = input.value.trim().toUpperCase() || "ANON";
+      const submitBtn = document.getElementById('submitNameButton');
+      
+      // Disable button to prevent double submit
+      submitBtn.disabled = true;
+      submitBtn.innerText = "...";
+
+      try {
+        const response = await fetch('/api/scores', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name: name, score: score })
+        });
+        
+        if (!response.ok) throw new Error('Server error');
+        
+        const result = await response.json();
+        
+        // Upload media if we have an ID
+        if (result.id) {
+            await uploadMedia(result.id);
+        }
+        
+        // Reload leaderboard to show new score
+        await loadLeaderboard();
+        
+      } catch (e) {
+        console.error("Failed to save score to server", e);
+        // Fallback save locally
+        leaderboard.push({ name, score });
+        try {
+            localStorage.setItem('wingman_leaderboard_fallback', JSON.stringify(leaderboard));
+        } catch(localErr) {}
+        updateLeaderboardDisplay();
+      }
+      
+      waitingForName = false;
+      input.value = ''; // Reset input
+      submitBtn.disabled = false;
+      submitBtn.innerText = "ZAPISZ (ENTER)";
+      
+      updateGameOverUI();
+      
+      // Start restart timer
+      canRestart = false;
+      document.getElementById('rechargingState').style.display = 'flex';
+      
+      // Wait for cooldown before allowing restart
+      setTimeout(() => {
+        canRestart = true;
+        gameOverTime = Date.now() - 2500; // Ensure logic in handleFlap passes
+        updateGameOverUI();
+      }, 2000);
+    }
+
+    // ==========================================
+    // MEDIA RECORDING
+    // ==========================================
+    function startRecording() {
+      // Use poseCanvas to record the person/camera feed instead of game
+      const canvas = document.getElementById('poseCanvas');
+      if (!canvas) return;
+
+      try {
+        const stream = canvas.captureStream(30); // 30 FPS
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+        
+        recordedChunks = [];
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            recordedChunks.push(event.data);
+          }
+        };
+        
+        mediaRecorder.start();
+        console.log("Recording started (Camera)");
+      } catch (e) {
+        console.error("Failed to start recording", e);
+      }
+      
+      // Reset snapshots
+      snapshots = [];
+      gameStartTime = Date.now();
+      
+      // Schedule snapshots
+      setTimeout(takeSnapshot, 1000); 
+      snapshotInterval = setTimeout(takeSnapshot, 5000);
+    }
+
+    function stopRecording() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        console.log("Recording stopped");
+      }
+      
+      if (snapshotInterval) clearTimeout(snapshotInterval);
+      
+      // Take final snapshot
+      takeSnapshot();
+    }
+
+    function takeSnapshot() {
+      if (snapshots.length >= 3) return;
+      
+      // Use poseCanvas for snapshots too
+      const canvas = document.getElementById('poseCanvas');
+      if (!canvas) return;
+      
+      try {
+        const dataURL = canvas.toDataURL('image/png');
+        snapshots.push(dataURL);
+        console.log("Snapshot taken (Camera)");
+      } catch (e) {
+        console.error("Snapshot failed", e);
+      }
+    }
+
+    async function uploadMedia(scoreId) {
+      if (recordedChunks.length === 0 && snapshots.length === 0) return;
+      
+      const blob = new Blob(recordedChunks, { type: 'video/webm' });
+      const formData = new FormData();
+      
+      formData.append('video', blob, `game_${scoreId}.webm`);
+      
+      snapshots.forEach((snap, index) => {
+        // Convert dataURL to blob
+        const byteString = atob(snap.split(',')[1]);
+        const mimeString = snap.split(',')[0].split(':')[1].split(';')[0];
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+        const imgBlob = new Blob([ab], { type: mimeString });
+        
+        formData.append('images', imgBlob, `game_${scoreId}_img_${index}.png`);
+      });
+      
+      try {
+        const response = await fetch(`/api/upload_media/${scoreId}`, {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (response.ok) {
+          console.log("Media uploaded successfully");
+        } else {
+          console.error("Media upload failed");
+        }
+      } catch (e) {
+        console.error("Error uploading media", e);
+      }
+    }
 
     // ==========================================
     // AUDIO SYSTEM
@@ -1327,14 +1627,32 @@
 
       if (newState === GameState.START) {
         resetGame();
+        // Leaderboard is always visible now
+      }
+      
+      if (newState === GameState.PLAYING) {
+        // Leaderboard stays visible
+        startRecording();
       }
 
       if (newState === GameState.GAME_OVER) {
+        stopRecording();
         canRestart = false;
-        setTimeout(() => {
-          canRestart = true;
-          updateGameOverUI();
-        }, 2000);
+        
+        // Only ask for name if score > 0
+        if (score > 0) {
+            waitingForName = true;
+        } else {
+            waitingForName = false;
+            // If score is 0, start restart cooldown immediately
+            setTimeout(() => {
+                canRestart = true;
+                updateGameOverUI();
+            }, 2000);
+        }
+        
+        document.getElementById('leaderboard').classList.remove('hidden');
+        updateGameOverUI();
       }
     }
 
@@ -1363,14 +1681,28 @@
     function updateGameOverUI() {
       const rechargingState = document.getElementById('rechargingState');
       const readyToRestartState = document.getElementById('readyToRestartState');
+      const nameInputSection = document.getElementById('nameInputSection');
 
-      if (!canRestart) {
-        rechargingState.style.display = 'flex';
-        readyToRestartState.classList.add('hidden');
-      } else {
+      if (waitingForName) {
+        nameInputSection.classList.remove('hidden');
         rechargingState.style.display = 'none';
-        readyToRestartState.classList.remove('hidden');
-        readyToRestartState.style.display = 'flex';
+        readyToRestartState.classList.add('hidden');
+        
+        // Autofocus
+        setTimeout(() => {
+            document.getElementById('playerNameInput').focus();
+        }, 50);
+      } else {
+        nameInputSection.classList.add('hidden');
+        
+        if (!canRestart) {
+          rechargingState.style.display = 'flex';
+          readyToRestartState.classList.add('hidden');
+        } else {
+          rechargingState.style.display = 'none';
+          readyToRestartState.classList.remove('hidden');
+          readyToRestartState.style.display = 'flex';
+        }
       }
     }
 
@@ -1387,13 +1719,14 @@
         return;
       }
 
-      // Prevent accidental restarts during cooldown
-      if (gameState === GameState.GAME_OVER && !canRestart) return;
+      // Prevent accidental restarts during cooldown or name entry
+      if (gameState === GameState.GAME_OVER) {
+        if (waitingForName || !canRestart) return;
 
-      // Game Over - Restart
-      if (gameState === GameState.GAME_OVER && canRestart) {
+        // Game Over - Restart
         playFlapSound();
         const now = Date.now();
+        // Just a safety check, though canRestart logic should handle it
         if (now - gameOverTime > 2000) {
           resetGame();
           setGameState(GameState.PLAYING);
@@ -1437,11 +1770,20 @@
     // ==========================================
     document.getElementById('startButton').addEventListener('click', handleInitialize);
     document.getElementById('restartButton').addEventListener('click', handleRestart);
+    document.getElementById('submitNameButton').addEventListener('click', handleNameSubmit);
+    
+    // Allow pressing Enter to submit name
+    document.getElementById('playerNameInput').addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        handleNameSubmit();
+      }
+    });
 
     // ==========================================
     // INITIALIZE GAME
     // ==========================================
     window.addEventListener('DOMContentLoaded', () => {
+      loadLeaderboard();
       initGameScene();
       updateUI();
     });

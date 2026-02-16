@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+  <title>Wingman Leaderboard</title>
+
+  <!-- Tailwind CSS -->
+  <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+  
+  <!-- Google Fonts: Pixel Art Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      background-color: #000;
+      font-family: 'Press Start 2P', cursive;
+      color: white;
+      overflow: hidden;
+      padding: 0;
+      margin: 0;
+      height: 100vh;
+    }
+
+    .title {
+      text-align: center;
+      font-size: 2rem;
+      color: #22d3ee;
+      margin-bottom: 2rem;
+      text-shadow: 4px 4px 0px #000;
+    }
+
+    .container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: row;
+      gap: 0;
+    }
+
+    .column {
+      min-width: 300px;
+      background-color: #111827;
+      border: none;
+      border-right: 4px solid #22d3ee;
+      padding: 2rem;
+      box-shadow: none;
+      height: 100%;
+      overflow-y: auto;
+    }
+
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 2px solid #4b5563;
+      padding-bottom: 1rem;
+      margin-bottom: 1rem;
+      color: #facc15;
+    }
+
+    .list-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.75rem 0;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.2);
+      font-size: 0.8rem;
+    }
+
+    .list-item:nth-child(even) {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .rank {
+      color: #9ca3af;
+      width: 70px;
+      text-align: left;
+    }
+
+    .name {
+      flex: 1;
+      text-align: center;
+      padding: 0 1rem;
+    }
+
+    .score {
+      color: #ffd500;
+      width: 100px;
+      text-align: right;
+    }
+
+    .refresh-info {
+      text-align: center;
+      margin-top: 2rem;
+      font-size: 0.7rem;
+      color: #6b7280;
+    }
+    .media-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      height: 100%;
+    }
+
+    .media-header {
+      color: #22d3ee;
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      text-align: center;
+      text-shadow: 2px 2px 0px #000;
+    }
+    
+    .media-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      align-items: center;
+      flex: 1;
+      height: 100%;
+      justify-content: center;
+      overflow: hidden;
+    }
+    
+    video {
+      width: 100%;
+      border: 6px solid #fff;
+      box-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+      flex: 1;
+      object-fit: contain;
+      min-height: 0; /* Important for flex items */
+    }
+    
+    .screenshots {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: space-between;
+      width: 100%;
+      margin-top: 0.5rem;
+      flex: 0 0 auto;
+      height: 25%;
+      min-height: 0; /* Important for flex items */
+    }
+    
+    .screenshot {
+      flex: 1;
+      border: 3px solid #fff;
+      object-fit: cover;
+      height: 100%;
+      width: 100%;
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+    }
+    
+    .last-game-info {
+        text-align: center;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px dashed rgba(255,255,255,0.3);
+        padding-bottom: 1.5rem;
+        width: 100%;
+    }
+    
+    .last-game-score {
+        font-size: 3rem;
+        color: #ffd500;
+        margin-top: 0.5rem;
+        text-shadow: 3px 3px 0px #000;
+    }
+    
+    .pilot-name {
+        font-size: 1.5rem;
+        color: #22d3ee;
+    }
+  </style>
+</head>
+<body>
+
+  <h1 class="title hidden">TOP PILOTS</h1>
+
+  <div class="container">
+    <!-- Left Column: Leaderboard -->
+    <div class="column" style="flex: 1;">
+      <div style="display: flex; gap: 2rem; height: 100%;">
+          <div style="flex: 1;">
+              <div class="list-header">
+                <span class="rank">RANK</span>
+                <span class="name">PLAYER</span>
+                <span class="score">SCORE</span>
+              </div>
+              <div id="col1-list"></div>
+          </div>
+          <div style="flex: 1;">
+              <div class="list-header">
+                <span class="rank">RANK</span>
+                <span class="name">PLAYER</span>
+                <span class="score">SCORE</span>
+              </div>
+              <div id="col2-list"></div>
+          </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Last Game Media -->
+    <div class="column" style="flex: 1;">
+      <div class="media-container">
+        <div class="media-header">LAST GAME REPLAY</div>
+        
+        <div id="last-game-details" class="media-content">
+             <div style="text-align: center; color: #6b7280; padding: 2rem;">
+                 Waiting for game data...
+             </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="refresh-info hidden">
+    Auto-refreshing every 5 seconds...
+  </div>
+
+  <script>
+    // ==========================================
+    // LOCAL SERVER CONFIG
+    // ==========================================
+
+    async function fetchLeaderboard() {
+      try {
+        // Fetch top 100 from local server
+        const response = await fetch('/api/scores?limit=100');
+        if (!response.ok) throw new Error('Network response was not ok');
+        
+        const data = await response.json();
+        if (data) {
+          renderLeaderboard(data);
+        }
+      } catch (e) {
+        console.error("Error fetching leaderboard:", e);
+      }
+      
+      // Also fetch latest game media
+      fetchLatestGame();
+    }
+    
+    let lastGameData = null;
+    
+    async function fetchLatestGame() {
+        try {
+            const response = await fetch('/api/latest_game');
+            if (!response.ok) return;
+            const data = await response.json();
+            if (data) {
+                // Check if new data is different to avoid reloading video
+                if (!lastGameData || 
+                    lastGameData.id !== data.id || 
+                    lastGameData.video !== data.video ||
+                    JSON.stringify(lastGameData.images) !== JSON.stringify(data.images)) {
+                    
+                    lastGameData = data;
+                    renderLatestGame(data);
+                }
+            }
+        } catch (e) {
+            console.error("Error fetching latest game:", e);
+        }
+    }
+    
+    function renderLatestGame(data) {
+        const container = document.getElementById('last-game-details');
+        
+        let imagesHtml = '';
+        const hasImages = data.images && data.images.some(img => img);
+        
+        if (hasImages) {
+            imagesHtml = `<div class="screenshots">`;
+            data.images.forEach(img => {
+                if (img) {
+                    imagesHtml += `<img src="${img}" class="screenshot" alt="Snapshot">`;
+                }
+            });
+            imagesHtml += `</div>`;
+        }
+        
+        let videoHtml = '';
+        if (data.video) {
+            videoHtml = `<video controls autoplay loop muted playsinline src="${data.video}"></video>`;
+        } else {
+            videoHtml = `<div style="padding: 2rem; border: 1px dashed #4b5563; width: 100%; text-align: center; flex: 2; display: flex; align-items: center; justify-content: center;">No video available</div>`;
+        }
+        
+        container.innerHTML = `
+            ${videoHtml}
+            ${imagesHtml}
+        `;
+    }
+
+    function renderLeaderboard(data) {
+      const col1 = document.getElementById('col1-list');
+      const col2 = document.getElementById('col2-list');
+      
+      col1.innerHTML = '';
+      col2.innerHTML = '';
+
+      // Fill left column first (up to 20 items), then right column
+      const itemsPerColumn = 20;
+
+      data.forEach((entry, index) => {
+        // Stop if we exceed both columns capacity (e.g. 40 items)
+        if (index >= itemsPerColumn * 2) return;
+
+        const item = document.createElement('div');
+        item.className = 'list-item';
+        item.innerHTML = `
+          <span class="rank">#${index + 1}</span>
+          <span class="name">${entry.name}</span>
+          <span class="score">${entry.score}</span>
+        `;
+
+        // Fill logic
+        if (index < itemsPerColumn) {
+          col1.appendChild(item);
+        } else {
+          col2.appendChild(item);
+        }
+      });
+    }
+
+    // Initial load
+    fetchLeaderboard();
+
+    // Auto refresh every 5 seconds
+    setInterval(fetchLeaderboard, 5000);
+  </script>
+</body>
+</html>
