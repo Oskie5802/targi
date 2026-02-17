@@ -6,6 +6,7 @@ class NetworkManager:
     def __init__(self, url="http://localhost:5000"):
         self.url = url
         self.state_buffer = None
+        self.frame_buffer = None
         self.settings = {"fps": 30, "paused": False}
         self.command_queue = []
         self.lock = threading.Lock()
@@ -26,6 +27,14 @@ class NetworkManager:
                     self.connected = False
                     # print(f"Connection error: {e}")
                 self.state_buffer = None
+
+            # Send frame if available
+            if self.frame_buffer:
+                try:
+                    requests.post(f"{self.url}/api/stream/snake", data=self.frame_buffer, headers={'Content-Type': 'application/octet-stream'})
+                except Exception as e:
+                    pass
+                self.frame_buffer = None
             
             # Get settings
             try:
@@ -52,10 +61,13 @@ class NetworkManager:
             except:
                 pass
             
-            time.sleep(0.1) # 10 updates per second
+            time.sleep(0.03) # ~30 updates per second
 
     def update_state(self, state):
         self.state_buffer = state
+
+    def update_frame(self, frame_bytes):
+        self.frame_buffer = frame_bytes
 
     def get_settings(self):
         with self.lock:

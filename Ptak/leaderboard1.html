@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+  <title>Wingman Leaderboard - Rank</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background-color: #000;
+      font-family: 'Press Start 2P', cursive;
+      color: white;
+      overflow: hidden;
+      padding: 2rem;
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .title {
+      text-align: center;
+      font-size: 3rem;
+      color: #22d3ee;
+      margin-bottom: 2rem;
+      text-shadow: 4px 4px 0px #000;
+      border-bottom: 4px solid #22d3ee;
+      padding-bottom: 1rem;
+    }
+
+    .columns-container {
+        display: flex;
+        flex: 1;
+        gap: 2rem;
+        overflow: hidden;
+    }
+
+    .list-column {
+        flex: 1;
+        border-right: 2px solid #374151;
+        padding-right: 2rem;
+    }
+    
+    .list-column:last-child {
+        border-right: none;
+    }
+
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 4px solid #4b5563;
+      padding-bottom: 1rem;
+      margin-bottom: 1rem;
+      color: #facc15;
+      font-size: 1.2rem;
+    }
+
+    .list-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 1rem 0;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.2);
+      font-size: 1rem;
+    }
+
+    .list-item:nth-child(even) {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+    
+    .list-item:first-child {
+        color: #ffd500; /* Gold for 1st in column */
+    }
+
+    .rank { color: #9ca3af; width: 80px; }
+    .name { flex: 1; text-align: center; color: #fff; }
+    .score { color: #22d3ee; width: 120px; text-align: right; }
+  </style>
+</head>
+<body>
+
+  <h1 class="title">TOP PILOTS</h1>
+
+  <div class="columns-container">
+      <div class="list-column">
+          <div class="list-header">
+            <span class="rank">RANK</span>
+            <span class="name">PLAYER</span>
+            <span class="score">SCORE</span>
+          </div>
+          <div id="col1-list"></div>
+      </div>
+      <div class="list-column">
+          <div class="list-header">
+            <span class="rank">RANK</span>
+            <span class="name">PLAYER</span>
+            <span class="score">SCORE</span>
+          </div>
+          <div id="col2-list"></div>
+      </div>
+  </div>
+
+  <script>
+    async function fetchLeaderboard() {
+      try {
+        const response = await fetch('/api/scores?limit=40');
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data) renderLeaderboard(data);
+      } catch (e) { console.error(e); }
+    }
+
+    function renderLeaderboard(data) {
+      const col1 = document.getElementById('col1-list');
+      const col2 = document.getElementById('col2-list');
+      col1.innerHTML = ''; col2.innerHTML = '';
+
+      const itemsPerColumn = 15; // Fit ~15 items per column
+
+      data.forEach((entry, index) => {
+        if (index >= itemsPerColumn * 2) return;
+
+        const item = document.createElement('div');
+        item.className = 'list-item';
+        
+        // Highlight top 3 globally
+        let rankColor = '#9ca3af';
+        if(index === 0) rankColor = '#ffd500'; // Gold
+        if(index === 1) rankColor = '#c0c0c0'; // Silver
+        if(index === 2) rankColor = '#cd7f32'; // Bronze
+
+        item.innerHTML = `
+          <span class="rank" style="color:${rankColor}">#${index + 1}</span>
+          <span class="name">${entry.name}</span>
+          <span class="score">${entry.score}</span>
+        `;
+
+        if (index < itemsPerColumn) col1.appendChild(item);
+        else col2.appendChild(item);
+      });
+    }
+
+    fetchLeaderboard();
+    setInterval(fetchLeaderboard, 5000);
+  </script>
+</body>
+</html>

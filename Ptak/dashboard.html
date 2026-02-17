@@ -80,8 +80,8 @@
                                 <span><i class="fas fa-desktop me-2"></i>Live Game Feed</span>
                                 <span class="badge bg-dark" id="fps-display">-- FPS</span>
                             </div>
-                            <div class="card-body p-3">
-                                <canvas id="snake-canvas" width="800" height="533" class="game-canvas"></canvas>
+                            <div class="card-body p-3 text-center">
+                                <img src="/api/stream/snake/mjpeg" class="game-canvas" alt="Waiting for Snake stream..." style="object-fit: contain; width: 100%; height: auto;">
                             </div>
                         </div>
                         
@@ -177,7 +177,7 @@
                                 <span><i class="fas fa-gamepad me-2"></i>Live Game View</span>
                             </div>
                             <div class="card-body p-0 bg-black text-center">
-                                <canvas id="ptak-game-canvas" width="600" height="400" style="width:100%; height:300px; background:#87CEEB;"></canvas>
+                                <img src="/api/stream/ptak/mjpeg" style="width:100%; height:300px; object-fit: contain;" alt="Waiting for Ptak stream...">
                             </div>
                         </div>
                         
@@ -268,100 +268,9 @@
         });
 
         // --- SNAKE LOGIC ---
-        const canvas = document.getElementById('snake-canvas');
-        const ctx = canvas.getContext('2d');
-        let snakeState = { fps: 30, paused: false, snake: [] };
-        let lastSnakeUpdate = Date.now();
-        let interpolation = 0;
+        // Removed canvas drawing logic in favor of MJPEG stream
         
-        // Visuals
-        const COLORS = {
-            board1: '#aad751',
-            board2: '#a2d149',
-            snakeHead: '#4285f4',
-            snakeBody: '#669df6',
-            apple: '#e7471d'
-        };
-
-        function drawSnakeGame() {
-            // Background
-            const rows = 16; // 320 / 20
-            const cols = 24; // 480 / 20
-            const w = canvas.width / cols;
-            const h = canvas.height / rows;
-
-            for(let r=0; r<rows; r++) {
-                for(let c=0; c<cols; c++) {
-                    ctx.fillStyle = (r+c)%2===0 ? COLORS.board1 : COLORS.board2;
-                    ctx.fillRect(c*w, r*h, w, h);
-                }
-            }
-
-            if (!snakeState || !snakeState.snake || snakeState.snake.length === 0) return;
-
-            // Draw Apple
-            if (snakeState.food) {
-                const fx = snakeState.food.x / 20 * w;
-                const fy = snakeState.food.y / 20 * h;
-                const size = w * 0.8;
-                const offset = (w - size) / 2;
-                
-                ctx.fillStyle = COLORS.apple;
-                ctx.beginPath();
-                ctx.arc(fx + w/2, fy + h/2, size/2, 0, Math.PI*2);
-                ctx.fill();
-                
-                // Leaf
-                ctx.fillStyle = '#50c832';
-                ctx.beginPath();
-                ctx.ellipse(fx + w/2, fy, size/4, size/3, Math.PI/4, 0, Math.PI*2);
-                ctx.fill();
-            }
-
-            // Draw Snake (Rounded)
-            // Ideally we'd interpolate, but for now let's just draw the current state smoothly
-            ctx.fillStyle = COLORS.snakeBody;
-            snakeState.snake.forEach((seg, i) => {
-                const sx = seg.x / 20 * w;
-                const sy = seg.y / 20 * h;
-                
-                if (i === 0) {
-                    ctx.fillStyle = COLORS.snakeHead;
-                } else {
-                    ctx.fillStyle = COLORS.snakeBody;
-                }
-                
-                // Slightly larger to merge segments
-                ctx.fillRect(sx, sy, w+1, h+1); 
-                
-                // Eyes for head
-                if (i === 0) {
-                    ctx.fillStyle = '#fff';
-                    // Determine direction roughly (compare with next segment)
-                    let dx = 0, dy = 0;
-                    if (snakeState.snake.length > 1) {
-                        dx = Math.sign(snakeState.snake[0].x - snakeState.snake[1].x);
-                        dy = Math.sign(snakeState.snake[0].y - snakeState.snake[1].y);
-                    } else { dx = 1; } // Default right
-
-                    // Logic for eye placement based on direction is complex for 2D rects
-                    // Simplified: Just draw two dots in center
-                    const eyeSize = w * 0.2;
-                    ctx.beginPath();
-                    ctx.arc(sx + w*0.3 + dx*5, sy + h*0.3 + dy*5, eyeSize, 0, Math.PI*2);
-                    ctx.arc(sx + w*0.7 + dx*5, sy + h*0.3 + dy*5, eyeSize, 0, Math.PI*2); // This logic is flawed for vertical, but okay for MVP
-                    ctx.fill();
-                    
-                    ctx.fillStyle = '#000';
-                    ctx.beginPath();
-                    ctx.arc(sx + w*0.3 + dx*7, sy + h*0.3 + dy*7, eyeSize*0.5, 0, Math.PI*2);
-                    ctx.arc(sx + w*0.7 + dx*7, sy + h*0.3 + dy*7, eyeSize*0.5, 0, Math.PI*2);
-                    ctx.fill();
-                }
-            });
-        }
-
-        // Snake Polling
+        // Snake Polling (Only Stats)
         setInterval(() => {
             fetch('/api/snake/state')
                 .then(r => r.json())
@@ -372,8 +281,6 @@
                     
                     document.getElementById('snake-status').className = 'badge bg-success d-flex align-items-center';
                     document.getElementById('snake-status').innerHTML = '<i class="fas fa-circle me-2" style="font-size: 0.6em;"></i>Snake Online';
-                    
-                    requestAnimationFrame(drawSnakeGame);
                     
                     // Update Chart occasionally
                     if (Math.random() < 0.1 && snakeChart.data.datasets[0].data.length < 50) {
@@ -386,82 +293,14 @@
                     document.getElementById('snake-status').className = 'badge bg-secondary d-flex align-items-center';
                     document.getElementById('snake-status').innerHTML = '<i class="fas fa-circle me-2" style="font-size: 0.6em;"></i>Snake Offline';
                 });
-        }, 50); // 20 FPS polling
+        }, 500); // Slower polling for stats since video is separate
 
         // --- PTAK LOGIC ---
-        const ptakGameCanvas = document.getElementById('ptak-game-canvas');
-        const ptakGameCtx = ptakGameCanvas.getContext('2d');
         const ptakPoseCanvas = document.getElementById('ptak-pose-canvas');
         const ptakPoseCtx = ptakPoseCanvas.getContext('2d');
         
         let ptakState = {};
 
-        function drawPtakGame() {
-            // Sky
-            ptakGameCtx.fillStyle = '#87CEEB';
-            ptakGameCtx.fillRect(0, 0, ptakGameCanvas.width, ptakGameCanvas.height);
-            
-            // Ground
-            ptakGameCtx.fillStyle = '#e6c288'; // Sand
-            ptakGameCtx.fillRect(0, ptakGameCanvas.height - 50, ptakGameCanvas.width, 50);
-            
-            if (!ptakState) return;
-            
-            // Scale logic
-            // Game world is roughly 0-100 height (player.y), Z axis is depth.
-            // We'll simulate a side view.
-            
-            const scaleY = ptakGameCanvas.height / 120; // 120 units high
-            const playerY = (120 - ptakState.player_y) * scaleY; // Invert Y
-            
-            // Player
-            ptakGameCtx.fillStyle = '#FFD700';
-            ptakGameCtx.beginPath();
-            ptakGameCtx.arc(100, playerY, 20, 0, Math.PI*2);
-            ptakGameCtx.fill();
-            // Wing
-            ptakGameCtx.fillStyle = '#FFF';
-            ptakGameCtx.beginPath();
-            ptakGameCtx.ellipse(90, playerY, 10, 5, 0, 0, Math.PI*2);
-            ptakGameCtx.fill();
-            
-            // Pipes
-            if (ptakState.pipes) {
-                ptakState.pipes.forEach(pipe => {
-                    // Pipe Z position to Screen X
-                    // Pipe spawns at -430Z (far) and moves to +10Z (camera/player)
-                    // This 3D to 2D mapping is tricky without the 3D matrix.
-                    // But we can approximate: if pipe.z is close to 0, it's at the player (x=100).
-                    // if pipe.z is negative, it's to the right? No, standard 3D: Camera looks -Z usually.
-                    // Wait, code says: pipes move from negative Z towards 0. Player is at 0?
-                    // "pipe.position.z += worldSpeed * dt"
-                    // "if pipe.position.z > 10 remove"
-                    // So they come from -430 to +10.
-                    // Player is static in Z?
-                    
-                    // Let's map Z [-200, 10] to X [Width, 0]
-                    // If Z = 0 (Player), X = 100.
-                    // If Z = -100, X = 300?
-                    // Let's assume pipes come from Right.
-                    
-                    const distFromPlayer = -pipe.z; // positive
-                    const screenX = 100 + distFromPlayer * 3; 
-                    
-                    if (screenX > -50 && screenX < ptakGameCanvas.width + 50) {
-                        const gapY = (120 - pipe.gapY) * scaleY;
-                        const gapHeight = pipe.gapHeight * scaleY;
-                        
-                        ptakGameCtx.fillStyle = '#74BF2E';
-                        
-                        // Top Pipe
-                        ptakGameCtx.fillRect(screenX - 25, 0, 50, gapY - gapHeight/2);
-                        // Bottom Pipe
-                        ptakGameCtx.fillRect(screenX - 25, gapY + gapHeight/2, 50, ptakGameCanvas.height);
-                    }
-                });
-            }
-        }
-        
         function drawPtakPose() {
             ptakPoseCtx.fillStyle = '#000';
             ptakPoseCtx.fillRect(0, 0, ptakPoseCanvas.width, ptakPoseCanvas.height);
@@ -516,14 +355,15 @@
                     document.getElementById('ptak-status').className = 'badge bg-success d-flex align-items-center';
                     document.getElementById('ptak-status').innerHTML = '<i class="fas fa-circle me-2" style="font-size: 0.6em;"></i>Ptak Online';
                     
-                    requestAnimationFrame(drawPtakGame);
                     requestAnimationFrame(drawPtakPose);
                 })
                 .catch(() => {
                     document.getElementById('ptak-status').className = 'badge bg-secondary d-flex align-items-center';
                     document.getElementById('ptak-status').innerHTML = '<i class="fas fa-circle me-2" style="font-size: 0.6em;"></i>Ptak Offline';
                 });
-        }, 100);
+        }, 200); // 5 FPS polling for stats/pose
+
+        // --- MEDIA ---
 
         // --- MEDIA ---
         function loadMedia() {

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+  <title>Wingman Replay</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background-color: #000;
+      font-family: 'Press Start 2P', cursive;
+      color: white;
+      overflow: hidden;
+      padding: 0;
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .media-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 2rem;
+      box-sizing: border-box;
+    }
+
+    .media-header {
+      color: #22d3ee;
+      font-size: 3rem;
+      margin-bottom: 2rem;
+      text-align: center;
+      text-shadow: 4px 4px 0px #000;
+      border-bottom: 4px solid #22d3ee;
+      padding-bottom: 1rem;
+    }
+    
+    .media-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      align-items: center;
+      justify-content: center;
+      background: #111827;
+      border: 4px solid #374151;
+      border-radius: 12px;
+      padding: 1rem;
+      position: relative;
+    }
+    
+    video {
+      width: 100%;
+      height: 70%;
+      object-fit: contain;
+      border: 2px solid #000;
+      background: #000;
+    }
+    
+    .screenshots {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      width: 100%;
+      height: 25%;
+    }
+    
+    .screenshot {
+      height: 100%;
+      aspect-ratio: 16/9;
+      border: 2px solid #fff;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+    
+    .player-info {
+        position: absolute;
+        top: 2rem;
+        left: 2rem;
+        background: rgba(0,0,0,0.8);
+        padding: 1rem;
+        border: 2px solid #facc15;
+        z-index: 10;
+    }
+    
+    .player-name { color: #22d3ee; font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .player-score { color: #facc15; font-size: 2rem; }
+
+  </style>
+</head>
+<body>
+
+  <div class="media-container">
+    <div class="media-header">LAST FLIGHT REPLAY</div>
+    
+    <div id="media-content" class="media-content">
+         <div style="color: #6b7280; font-size: 1.5rem;">Waiting for pilot data...</div>
+    </div>
+  </div>
+
+  <script>
+    let lastGameId = null;
+    
+    async function fetchLatestGame() {
+        try {
+            const response = await fetch('/api/latest_game');
+            if (!response.ok) return;
+            const data = await response.json();
+            if (data && data.id !== lastGameId) {
+                lastGameId = data.id;
+                renderGame(data);
+            }
+        } catch (e) { console.error(e); }
+    }
+    
+    function renderGame(data) {
+        const container = document.getElementById('media-content');
+        
+        let imagesHtml = '';
+        if (data.images && data.images.length > 0) {
+            imagesHtml = `<div class="screenshots">`;
+            data.images.forEach(img => {
+                if(img) imagesHtml += `<img src="${img}" class="screenshot">`;
+            });
+            imagesHtml += `</div>`;
+        }
+        
+        const videoHtml = data.video ? 
+            `<video autoplay loop muted playsinline src="${data.video}"></video>` : 
+            `<div style="flex:1; display:flex; align-items:center; justify-content:center; color:#444;">NO VIDEO SIGNAL</div>`;
+            
+        container.innerHTML = `
+            <div class="player-info">
+                <div class="player-name">PILOT: ${data.name}</div>
+                <div class="player-score">SCORE: ${data.score}</div>
+            </div>
+            ${videoHtml}
+            ${imagesHtml}
+        `;
+    }
+    
+    fetchLatestGame();
+    setInterval(fetchLatestGame, 3000);
+  </script>
+</body>
+</html>

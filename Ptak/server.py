@@ -1,7 +1,8 @@
 import sqlite3
-from flask import Flask, request, jsonify, send_from_directory, render_template_string
+from flask import Flask, request, jsonify, send_from_directory, render_template_string, Response
 import os
 import time
+import io
 
 app = Flask(__name__, static_url_path='')
 
@@ -26,6 +27,7 @@ snake_settings = {
     "paused": False
 }
 snake_commands = []
+latest_snake_frame = None
 
 # Globalne zmienne dla Ptak (Live State)
 ptak_state = {
@@ -36,6 +38,7 @@ ptak_state = {
     "timestamp": 0,
     "is_playing": False
 }
+latest_ptak_frame = None
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -69,6 +72,14 @@ def index():
 @app.route('/leaderboard')
 def board_page():
     return send_from_directory('.', 'ptak_leaderboard.html')
+
+@app.route('/leaderboard1')
+def board1_page():
+    return send_from_directory('.', 'leaderboard1.html')
+
+@app.route('/leaderboard2')
+def board2_page():
+    return send_from_directory('.', 'leaderboard2.html')
 
 @app.route('/dashboard')
 def dashboard_page():
@@ -134,6 +145,49 @@ def update_ptak_state():
 @app.route('/api/ptak/state', methods=['GET'])
 def get_ptak_state():
     return jsonify(ptak_state)
+
+# --- API dla Streaming (Screen Mirror) ---
+
+@app.route('/api/stream/snake', methods=['POST'])
+def update_snake_frame():
+    global latest_snake_frame
+    if request.data:
+        latest_snake_frame = request.data
+        return "OK", 200
+    return "No data", 400
+
+def gen_snake_frames():
+    while True:
+        if latest_snake_frame:
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + latest_snake_frame + b'\r\n')
+        time.sleep(0.05)
+
+@app.route('/api/stream/snake/mjpeg')
+def stream_snake_mjpeg():
+    return Response(gen_snake_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+@app.route('/api/stream/ptak', methods=['POST'])
+def update_ptak_frame():
+    global latest_ptak_frame
+    # Expecting raw bytes or form data? Let's assume raw bytes body for simplicity from client
+    if request.data:
+        latest_ptak_frame = request.data
+        return "OK", 200
+    return "No data", 400
+
+def gen_ptak_frames():
+    while True:
+        if latest_ptak_frame:
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + latest_ptak_frame + b'\r\n')
+        time.sleep(0.05)
+
+@app.route('/api/stream/ptak/mjpeg')
+def stream_ptak_mjpeg():
+    return Response(gen_ptak_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
 
 # --- API dla Mediów Ptaka ---
 

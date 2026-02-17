@@ -7,6 +7,7 @@ from snake_game import SnakeGameAI
 from visualizer import Visualizer
 from network import NetworkManager
 import time
+import io
 
 # Config
 WINDOW_W = 1600
@@ -248,6 +249,28 @@ def main():
 
         # Draw Right Panel (Visualizer)
         visualizer.draw_dashboard(screen, agent, LEFT_PANEL_W, 0, RIGHT_PANEL_W, WINDOW_H, focused_activations, dashboard_mode, focused_game_idx, paused)
+
+        # Capture and Stream Frame (Every 3rd frame ~40FPS if 120FPS, or just every loop)
+        # Since network loop is throttled, we can just update the buffer.
+        # But image encoding is CPU heavy. Let's do it every 50ms (20FPS).
+        if current_time % 50 < 10: # Simple throttle
+             try:
+                 # Create a copy to avoid threading issues during encoding?
+                 # No, main thread does encoding.
+                 # Resize for dashboard? 
+                 # Let's send full res but scaled down if too big to save bandwidth
+                 # Target width ~800
+                 target_w = 800
+                 target_h = int(WINDOW_H * (800 / WINDOW_W))
+                 scaled = pygame.transform.smoothscale(screen, (target_w, target_h))
+                 
+                 # Save to buffer
+                 # Note: pygame.image.save to file-like object requires extension
+                 buf = io.BytesIO()
+                 pygame.image.save(scaled, buf, "JPEG")
+                 network.update_frame(buf.getvalue())
+             except Exception as e:
+                 print(f"Stream error: {e}")
 
         pygame.display.flip()
         clock.tick(120) # Limit loop speed (not game logic speed)

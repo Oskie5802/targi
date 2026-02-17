@@ -753,6 +753,33 @@
     let snapshotInterval = null;
 
     // ==========================================
+    // SCREEN STREAMING (For Dashboard Live Preview)
+    // ==========================================
+    let lastStreamTime = 0;
+    const STREAM_INTERVAL = 100; // 10 FPS
+
+    function streamGameScreen() {
+        const now = Date.now();
+        if (now - lastStreamTime < STREAM_INTERVAL) return;
+        lastStreamTime = now;
+
+        if (renderer && renderer.domElement) {
+            renderer.domElement.toBlob((blob) => {
+                if (blob) {
+                    fetch('/api/stream/ptak', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/octet-stream' },
+                        body: blob
+                    }).catch(e => {}); // Ignore errors
+                }
+            }, 'image/jpeg', 0.7); // 70% quality
+        }
+    }
+
+    // Hook into animate loop or set interval
+    setInterval(streamGameScreen, STREAM_INTERVAL);
+
+    // ==========================================
     // STATE BROADCASTING (For Dashboard)
     // ==========================================
     let lastLandmarks = null;
