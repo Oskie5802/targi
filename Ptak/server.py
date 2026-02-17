@@ -27,6 +27,16 @@ snake_settings = {
 }
 snake_commands = []
 
+# Globalne zmienne dla Ptak (Live State)
+ptak_state = {
+    "player_y": 25,
+    "pipes": [],
+    "score": 0,
+    "landmarks": None, # Pose landmarks
+    "timestamp": 0,
+    "is_playing": False
+}
+
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -110,6 +120,20 @@ def pop_snake_commands():
     cmds = list(snake_commands)
     snake_commands = []
     return jsonify(cmds)
+
+# --- API dla Ptaka (Live State) ---
+
+@app.route('/api/ptak/state', methods=['POST'])
+def update_ptak_state():
+    global ptak_state
+    data = request.json
+    ptak_state.update(data)
+    ptak_state['timestamp'] = time.time()
+    return jsonify({'status': 'ok'})
+
+@app.route('/api/ptak/state', methods=['GET'])
+def get_ptak_state():
+    return jsonify(ptak_state)
 
 # --- API dla Mediów Ptaka ---
 

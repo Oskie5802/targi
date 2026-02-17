@@ -753,6 +753,36 @@
     let snapshotInterval = null;
 
     // ==========================================
+    // STATE BROADCASTING (For Dashboard)
+    // ==========================================
+    let lastLandmarks = null;
+
+    function broadcastState() {
+        // Prepare data
+        const state = {
+            player_y: player ? player.y : 25,
+            score: score,
+            is_playing: gameState === GameState.PLAYING,
+            pipes: pipes.map(p => ({
+                z: p.position.z,
+                gapY: p.userData.gapY,
+                gapHeight: p.userData.gapHeight
+            })),
+            landmarks: lastLandmarks
+        };
+
+        // Send to server (fire and forget, don't await to avoid lag)
+        fetch('/api/ptak/state', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(state)
+        }).catch(e => {}); // Ignore errors
+    }
+
+    // Broadcast every 100ms (10 FPS)
+    setInterval(broadcastState, 100);
+
+    // ==========================================
     // LEADERBOARD SYSTEM (LOCAL SERVER)
     // ==========================================
     async function loadLeaderboard() {
@@ -1053,6 +1083,11 @@
         document.getElementById('loadingOverlay').classList.add('hidden');
         document.getElementById('instructionsOverlay').classList.remove('hidden');
         
+        // Save for broadcast
+        if (results.poseLandmarks) {
+            lastLandmarks = results.poseLandmarks;
+        }
+
         canvasElement.width = videoElement.videoWidth;
         canvasElement.height = videoElement.videoHeight;
 
