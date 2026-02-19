@@ -35,19 +35,16 @@ def main():
     RIGHT_PANEL_W = WINDOW_W - LEFT_PANEL_W
     
     # Grid for 6 games: 2 columns, 3 rows
-<<<<<<< HEAD
     COLS = 2
     ROWS = 3
     # Logic size for the game (fixed coordinate system)
     LOGIC_GAME_W = 480 
     LOGIC_GAME_H = 320 
-=======
     COLS = 3
     ROWS = 2
     # Logic size for the game (fixed coordinate system)
     LOGIC_GAME_W = 17 
     LOGIC_GAME_H = 17 
->>>>>>> 828a40c (update 02-19 22:45)
     
     # Draw size (dynamic)
     DRAW_GAME_W = LEFT_PANEL_W // COLS
@@ -62,10 +59,8 @@ def main():
 
     # Focus Mode State
     focused_game_idx = 0
-<<<<<<< HEAD
-=======
+
     view_mode = 0 # 0: Grid, 1: Fullscreen
->>>>>>> 828a40c (update 02-19 22:45)
     dashboard_mode = 0 # 0: Default (Focused Agent), 1: Stats Only, 2: Full Grid (Future?)
 
     # Time Accumulator for Logic Updates
@@ -102,8 +97,7 @@ def main():
                 try:
                     agent.epsilon = int(cmd.split("_")[2])
                 except: pass
-<<<<<<< HEAD
-=======
+
             elif cmd.startswith("FOCUS_"):
                 try:
                     focused_game_idx = int(cmd.split("_")[1])
@@ -111,7 +105,6 @@ def main():
                 except: pass
             elif cmd == "VIEW_GRID":
                 view_mode = 0
->>>>>>> 828a40c (update 02-19 22:45)
 
         # Time Management
         current_time = pygame.time.get_ticks()
@@ -194,7 +187,6 @@ def main():
                 # For visualization, we can just grab the latest.
 
                 for i, game in enumerate(games):
-<<<<<<< HEAD
                     # 1. Get State
                     state_old = agent.get_state(game)
 
@@ -229,7 +221,6 @@ def main():
                         
                         if score > (max(agent.score_history[:-1]) if len(agent.score_history) > 1 else 0):
                             agent.model.save()
-=======
                     try:
                         # 1. Get State
                         state_old = agent.get_state(game)
@@ -269,7 +260,6 @@ def main():
                         print(f"CRASH in Game {i}: {e}")
                         game.reset() # Reset only the crashed game
                         continue # Continue to next game
->>>>>>> 828a40c (update 02-19 22:45)
                 
                 # --- LOGIC UPDATE END ---
                 
@@ -299,7 +289,7 @@ def main():
         # Draw everything
         screen.fill((0, 0, 0)) # Clear screen
         
-<<<<<<< HEAD
+
         # Draw Left Panel (Games)
         for i, game in enumerate(games):
             row = i // COLS
