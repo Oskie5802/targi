@@ -305,7 +305,6 @@ def main():
 
         # Draw Right Panel (Visualizer)
         visualizer.draw_dashboard(screen, agent, LEFT_PANEL_W, 0, RIGHT_PANEL_W, WINDOW_H, focused_activations, dashboard_mode, focused_game_idx, paused)
-=======
         if view_mode == 0:
             # GRID VIEW
             # Draw Left Panel (Games)
@@ -336,7 +335,6 @@ def main():
             font = pygame.font.SysFont('Arial', 24)
             text = font.render(f"Agent {focused_game_idx+1} | Score: {games[focused_game_idx].score}", True, (255, 255, 255))
             screen.blit(text, (20, 20))
->>>>>>> 828a40c (update 02-19 22:45)
 
         # Capture and Stream Frame (Every ~33ms = 30FPS)
         if current_time - last_stream_time > 33: 
