@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify, send_from_directory, render_template_
 import os
 import time
 import io
+import threading
 
 app = Flask(__name__, static_url_path='')
 
@@ -28,6 +29,7 @@ snake_settings = {
 }
 snake_commands = []
 latest_snake_frame = None
+snake_frame_event = threading.Event()
 
 # Globalne zmienne dla Ptak (Live State)
 ptak_state = {
@@ -39,6 +41,10 @@ ptak_state = {
     "is_playing": False
 }
 latest_ptak_frame = None
+ptak_frame_event = threading.Event()
+
+latest_ptak_camera_frame = None
+ptak_camera_frame_event = threading.Event()
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -153,15 +159,22 @@ def update_snake_frame():
     global latest_snake_frame
     if request.data:
         latest_snake_frame = request.data
+        snake_frame_event.set()
         return "OK", 200
     return "No data", 400
 
 def gen_snake_frames():
     while True:
-        if latest_snake_frame:
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + latest_snake_frame + b'\r\n')
-        time.sleep(0.05)
+        if snake_frame_event.wait(timeout=1.0): # Wait for new frame
+            snake_frame_event.clear()
+            if latest_snake_frame:
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + latest_snake_frame + b'\r\n')
+        else:
+            # Send keepalive or last frame if timeout
+            if latest_snake_frame:
+                 yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + latest_snake_frame + b'\r\n')
 
 @app.route('/api/stream/snake/mjpeg')
 def stream_snake_mjpeg():
@@ -171,22 +184,53 @@ def stream_snake_mjpeg():
 @app.route('/api/stream/ptak', methods=['POST'])
 def update_ptak_frame():
     global latest_ptak_frame
-    # Expecting raw bytes or form data? Let's assume raw bytes body for simplicity from client
     if request.data:
         latest_ptak_frame = request.data
+        ptak_frame_event.set()
         return "OK", 200
     return "No data", 400
 
 def gen_ptak_frames():
     while True:
-        if latest_ptak_frame:
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + latest_ptak_frame + b'\r\n')
-        time.sleep(0.05)
+        if ptak_frame_event.wait(timeout=1.0):
+            ptak_frame_event.clear()
+            if latest_ptak_frame:
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + latest_ptak_frame + b'\r\n')
+        else:
+             if latest_ptak_frame:
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + latest_ptak_frame + b'\r\n')
 
 @app.route('/api/stream/ptak/mjpeg')
 def stream_ptak_mjpeg():
     return Response(gen_ptak_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+@app.route('/api/stream/ptak/camera', methods=['POST'])
+def update_ptak_camera_frame():
+    global latest_ptak_camera_frame
+    if request.data:
+        latest_ptak_camera_frame = request.data
+        ptak_camera_frame_event.set()
+        return "OK", 200
+    return "No data", 400
+
+def gen_ptak_camera_frames():
+    while True:
+        if ptak_camera_frame_event.wait(timeout=1.0):
+            ptak_camera_frame_event.clear()
+            if latest_ptak_camera_frame:
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + latest_ptak_camera_frame + b'\r\n')
+        else:
+            if latest_ptak_camera_frame:
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + latest_ptak_camera_frame + b'\r\n')
+
+@app.route('/api/stream/ptak/camera/mjpeg')
+def stream_ptak_camera_mjpeg():
+    return Response(gen_ptak_camera_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
 # --- API dla Mediów Ptaka ---
@@ -316,9 +360,10 @@ if __name__ == '__main__':
     
     init_db()
     print("===============================================================")
-    print(" SERWER GRY URUCHOMIONY")
-    print(" Gra dostepna pod adresem: http://localhost:5000")
-    print(" Leaderboard dostepny pod adresem: http://localhost:5000/leaderboard")
-    print(" Dashboard dostepny pod adresem: http://localhost:5000/dashboard")
+    print(" SERWER GRY URUCHOMIONY (HTTPS)")
+    print(" Gra dostepna pod adresem: https://localhost:5001")
+    print(" Leaderboard dostepny pod adresem: https://localhost:5001/leaderboard")
+    print(" Dashboard dostepny pod adresem: https://localhost:5001/dashboard")
     print("===============================================================")
-    app.run(host='0.0.0.0', port=5000)
+    # Uzywamy ssl_context='adhoc' dla HTTPS (wymaga pyopenssl)
+    app.run(host='0.0.0.0', port=5001, threaded=True, ssl_context='adhoc')

@@ -13,7 +13,7 @@ import io
 WINDOW_W = 1600
 WINDOW_H = 900
 INITIAL_FPS = 30 
-SERVER_URL = "http://localhost:5000"
+SERVER_URL = "https://localhost:5001"
 
 def main():
     global WINDOW_W, WINDOW_H
@@ -59,6 +59,7 @@ def main():
     # Time Accumulator for Logic Updates
     accumulator = 0
     last_time = pygame.time.get_ticks()
+    last_stream_time = 0
     
     # Game Control State
     paused = False
@@ -250,13 +251,10 @@ def main():
         # Draw Right Panel (Visualizer)
         visualizer.draw_dashboard(screen, agent, LEFT_PANEL_W, 0, RIGHT_PANEL_W, WINDOW_H, focused_activations, dashboard_mode, focused_game_idx, paused)
 
-        # Capture and Stream Frame (Every 3rd frame ~40FPS if 120FPS, or just every loop)
-        # Since network loop is throttled, we can just update the buffer.
-        # But image encoding is CPU heavy. Let's do it every 50ms (20FPS).
-        if current_time % 50 < 10: # Simple throttle
+        # Capture and Stream Frame (Every ~33ms = 30FPS)
+        if current_time - last_stream_time > 33: 
+             last_stream_time = current_time
              try:
-                 # Create a copy to avoid threading issues during encoding?
-                 # No, main thread does encoding.
                  # Resize for dashboard? 
                  # Let's send full res but scaled down if too big to save bandwidth
                  # Target width ~800
@@ -265,7 +263,6 @@ def main():
                  scaled = pygame.transform.smoothscale(screen, (target_w, target_h))
                  
                  # Save to buffer
-                 # Note: pygame.image.save to file-like object requires extension
                  buf = io.BytesIO()
                  pygame.image.save(scaled, buf, "JPEG")
                  network.update_frame(buf.getvalue())

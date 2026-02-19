@@ -2,12 +2,12 @@
 echo ========================================
 echo INSTALOWANIE WYMAGANYCH BIBLIOTEK...
 echo ========================================
-pip install flask
+pip install flask pyopenssl
 
 echo.
 echo ========================================
 echo URUCHAMIANIE SERWERA GRY...
 echo ========================================
-start http://localhost:5000
+start https://localhost:5001
 python server.py
 pause

@@ -618,17 +618,17 @@
         
         <!-- Camera Offline Placeholder -->
         <div id="cameraOffline" class="camera-offline font-retro">
-          CAMERA OFFLINE
+          CAMERA OFFLINE (Check Device Camera)
         </div>
         
         <!-- Loading Overlay -->
         <div id="loadingOverlay" class="loading-overlay hidden">
-          <p class="loading-text">Uruchamianie...</p>
+          <p class="loading-text">Starting Device Camera...</p>
         </div>
         
         <!-- Camera Error -->
         <div id="cameraError" class="camera-error hidden">
-          <p class="text-white font-bold">Wymagane dostępu do kamery.</p>
+          <p class="text-white font-bold">Access to LOCAL DEVICE camera required.</p>
         </div>
         
         <!-- Instructions Overlay -->
@@ -756,7 +756,7 @@
     // SCREEN STREAMING (For Dashboard Live Preview)
     // ==========================================
     let lastStreamTime = 0;
-    const STREAM_INTERVAL = 100; // 10 FPS
+    const STREAM_INTERVAL = 40; // ~25 FPS
 
     function streamGameScreen() {
         const now = Date.now();
@@ -772,7 +772,21 @@
                         body: blob
                     }).catch(e => {}); // Ignore errors
                 }
-            }, 'image/jpeg', 0.7); // 70% quality
+            }, 'image/jpeg', 0.6); // 60% quality is enough for preview
+        }
+        
+        // Stream Camera as well
+        const poseCanvas = document.getElementById('poseCanvas');
+        if (poseCanvas) {
+             poseCanvas.toBlob((blob) => {
+                if (blob) {
+                    fetch('/api/stream/ptak/camera', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/octet-stream' },
+                        body: blob
+                    }).catch(e => {});
+                }
+            }, 'image/jpeg', 0.6);
         }
     }
 
@@ -880,7 +894,7 @@
         
         // Upload media if we have an ID
         if (result.id) {
-            await uploadMedia(result.id);
+           await uploadMedia(result.id);
         }
         
         // Reload leaderboard to show new score
@@ -1188,9 +1202,12 @@
             await poseInstance.send({ image: videoElement });
           }
         },
-        width: 1800,
-        height: 1800
+        width: 1280,
+        height: 720,
+        facingMode: 'user' // Force front camera on mobile/tablet
       });
+      
+      console.log("Initializing camera from local device...");
 
       cameraInstance.start()
         .then(() => {
@@ -1482,7 +1499,11 @@
       camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
 
       // Init Renderer
-      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+      renderer = new THREE.WebGLRenderer({ 
+        antialias: true, 
+        powerPreference: "high-performance",
+        preserveDrawingBuffer: true 
+      });
       renderer.setSize(container.clientWidth, container.clientHeight);
       renderer.shadowMap.enabled = true;
       container.appendChild(renderer.domElement);

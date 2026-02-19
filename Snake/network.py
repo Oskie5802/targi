@@ -1,9 +1,13 @@
 import threading
 import time
 import requests
+import urllib3
+
+# Disable warnings for self-signed certificates
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class NetworkManager:
-    def __init__(self, url="http://localhost:5000"):
+    def __init__(self, url="https://localhost:5001"):
         self.url = url
         self.state_buffer = None
         self.frame_buffer = None
@@ -21,7 +25,7 @@ class NetworkManager:
             # Send state if available
             if self.state_buffer:
                 try:
-                    requests.post(f"{self.url}/api/snake/state", json=self.state_buffer)
+                    requests.post(f"{self.url}/api/snake/state", json=self.state_buffer, verify=False)
                     self.connected = True
                 except Exception as e:
                     self.connected = False
@@ -31,14 +35,14 @@ class NetworkManager:
             # Send frame if available
             if self.frame_buffer:
                 try:
-                    requests.post(f"{self.url}/api/stream/snake", data=self.frame_buffer, headers={'Content-Type': 'application/octet-stream'})
+                    requests.post(f"{self.url}/api/stream/snake", data=self.frame_buffer, headers={'Content-Type': 'application/octet-stream'}, verify=False)
                 except Exception as e:
                     pass
                 self.frame_buffer = None
             
             # Get settings
             try:
-                r = requests.get(f"{self.url}/api/snake/settings")
+                r = requests.get(f"{self.url}/api/snake/settings", verify=False)
                 if r.status_code == 200:
                     with self.lock:
                         new_settings = r.json()
@@ -53,7 +57,7 @@ class NetworkManager:
 
             # Get commands
             try:
-                r = requests.get(f"{self.url}/api/snake/commands")
+                r = requests.get(f"{self.url}/api/snake/commands", verify=False)
                 if r.status_code == 200:
                     cmds = r.json()
                     with self.lock:
@@ -61,7 +65,7 @@ class NetworkManager:
             except:
                 pass
             
-            time.sleep(0.03) # ~30 updates per second
+            time.sleep(0.005) # ~200 updates per second (faster poll)
 
     def update_state(self, state):
         self.state_buffer = state

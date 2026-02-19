@@ -187,7 +187,7 @@
                                 <span><i class="fas fa-camera me-2"></i>Computer Vision Feed</span>
                             </div>
                             <div class="card-body p-0 bg-black text-center">
-                                <canvas id="ptak-pose-canvas" width="600" height="400" style="width:100%; height:300px; background:#000;"></canvas>
+                                <img src="/api/stream/ptak/camera/mjpeg" style="width:100%; height:300px; object-fit: contain;" alt="Waiting for Camera stream...">
                             </div>
                         </div>
                     </div>
@@ -296,56 +296,7 @@
         }, 500); // Slower polling for stats since video is separate
 
         // --- PTAK LOGIC ---
-        const ptakPoseCanvas = document.getElementById('ptak-pose-canvas');
-        const ptakPoseCtx = ptakPoseCanvas.getContext('2d');
-        
         let ptakState = {};
-
-        function drawPtakPose() {
-            ptakPoseCtx.fillStyle = '#000';
-            ptakPoseCtx.fillRect(0, 0, ptakPoseCanvas.width, ptakPoseCanvas.height);
-            
-            if (!ptakState.landmarks) {
-                ptakPoseCtx.fillStyle = '#333';
-                ptakPoseCtx.font = '20px monospace';
-                ptakPoseCtx.fillText("NO POSE DATA", 20, 40);
-                return;
-            }
-            
-            // Landmarks are normalized [0, 1]
-            const lm = ptakState.landmarks;
-            const w = ptakPoseCanvas.width;
-            const h = ptakPoseCanvas.height;
-            
-            // Draw connections
-            ptakPoseCtx.strokeStyle = '#00FFFF';
-            ptakPoseCtx.lineWidth = 4;
-            ptakPoseCtx.beginPath();
-            
-            // Shoulders
-            if(lm[11] && lm[12]) {
-                ptakPoseCtx.moveTo(lm[11].x * w, lm[11].y * h);
-                ptakPoseCtx.lineTo(lm[12].x * w, lm[12].y * h);
-            }
-            // Left Arm
-            if(lm[11] && lm[13]) { ptakPoseCtx.moveTo(lm[11].x * w, lm[11].y * h); ptakPoseCtx.lineTo(lm[13].x * w, lm[13].y * h); }
-            if(lm[13] && lm[15]) { ptakPoseCtx.moveTo(lm[13].x * w, lm[13].y * h); ptakPoseCtx.lineTo(lm[15].x * w, lm[15].y * h); }
-            // Right Arm
-            if(lm[12] && lm[14]) { ptakPoseCtx.moveTo(lm[12].x * w, lm[12].y * h); ptakPoseCtx.lineTo(lm[14].x * w, lm[14].y * h); }
-            if(lm[14] && lm[16]) { ptakPoseCtx.moveTo(lm[14].x * w, lm[14].y * h); ptakPoseCtx.lineTo(lm[16].x * w, lm[16].y * h); }
-            
-            ptakPoseCtx.stroke();
-            
-            // Draw Points
-            ptakPoseCtx.fillStyle = '#FF0000';
-            lm.forEach((p, i) => {
-                if (i > 10 && p.visibility > 0.5) { // Only upper body usually
-                    ptakPoseCtx.beginPath();
-                    ptakPoseCtx.arc(p.x * w, p.y * h, 5, 0, Math.PI*2);
-                    ptakPoseCtx.fill();
-                }
-            });
-        }
 
         setInterval(() => {
             fetch('/api/ptak/state')
@@ -354,14 +305,12 @@
                     ptakState = data;
                     document.getElementById('ptak-status').className = 'badge bg-success d-flex align-items-center';
                     document.getElementById('ptak-status').innerHTML = '<i class="fas fa-circle me-2" style="font-size: 0.6em;"></i>Ptak Online';
-                    
-                    requestAnimationFrame(drawPtakPose);
                 })
                 .catch(() => {
                     document.getElementById('ptak-status').className = 'badge bg-secondary d-flex align-items-center';
                     document.getElementById('ptak-status').innerHTML = '<i class="fas fa-circle me-2" style="font-size: 0.6em;"></i>Ptak Offline';
                 });
-        }, 200); // 5 FPS polling for stats/pose
+        }, 200); // 5 FPS polling for stats
 
         // --- MEDIA ---
 
