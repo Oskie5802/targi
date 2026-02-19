@@ -746,11 +746,11 @@
     let leaderboard = [];
 
     // Media Recording State
-    let mediaRecorder = null;
-    let recordedChunks = [];
-    let snapshots = [];
     let gameStartTime = 0;
-    let snapshotInterval = null;
+    
+    // Inactivity Timer
+    let inactivityTimer = null;
+    const INACTIVITY_TIMEOUT = 10000; // 10 seconds
 
     // ==========================================
     // SCREEN STREAMING (For Dashboard Live Preview)
@@ -804,6 +804,7 @@
             player_y: player ? player.y : 25,
             score: score,
             is_playing: gameState === GameState.PLAYING,
+            game_state: gameState, // 'START', 'PLAYING', 'GAME_OVER'
             pipes: pipes.map(p => ({
                 z: p.position.z,
                 gapY: p.userData.gapY,
@@ -872,9 +873,19 @@
 
     async function handleNameSubmit() {
       const input = document.getElementById('playerNameInput');
-      const name = input.value.trim().toUpperCase() || "ANON";
+      const name = input.value.trim().toUpperCase();
       const submitBtn = document.getElementById('submitNameButton');
       
+      // If no name entered, do not save, just reset
+      if (!name) {
+          waitingForName = false;
+          setGameState(GameState.START);
+          return;
+      }
+      
+      // Stop inactivity timer since user submitted
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+
       // Disable button to prevent double submit
       submitBtn.disabled = true;
       submitBtn.innerText = "...";
@@ -885,17 +896,17 @@
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ name: name, score: score })
+            body: JSON.stringify({ 
+                name: name, 
+                score: score, 
+                link_recording: true,
+                recording_filename: currentRecordingFilename
+            })
         });
         
         if (!response.ok) throw new Error('Server error');
         
         const result = await response.json();
-        
-        // Upload media if we have an ID
-        if (result.id) {
-           await uploadMedia(result.id);
-        }
         
         // Reload leaderboard to show new score
         await loadLeaderboard();
@@ -930,103 +941,35 @@
     }
 
     // ==========================================
-    // MEDIA RECORDING
+    // MEDIA RECORDING (Server-Side)
     // ==========================================
-    function startRecording() {
-      // Use poseCanvas to record the person/camera feed instead of game
-      const canvas = document.getElementById('poseCanvas');
-      if (!canvas) return;
+    let currentRecordingFilename = null;
 
+    async function startRecording() {
       try {
-        const stream = canvas.captureStream(30); // 30 FPS
-        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-        
-        recordedChunks = [];
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            recordedChunks.push(event.data);
-          }
-        };
-        
-        mediaRecorder.start();
-        console.log("Recording started (Camera)");
+        const response = await fetch('/api/recording/start', { method: 'POST' });
+        const data = await response.json();
+        if (data.status === 'started') {
+            currentRecordingFilename = data.filename;
+            console.log("Server recording started:", currentRecordingFilename);
+        }
       } catch (e) {
-        console.error("Failed to start recording", e);
+        console.error("Failed to start server recording", e);
       }
-      
-      // Reset snapshots
-      snapshots = [];
-      gameStartTime = Date.now();
-      
-      // Schedule snapshots
-      setTimeout(takeSnapshot, 1000); 
-      snapshotInterval = setTimeout(takeSnapshot, 5000);
     }
 
-    function stopRecording() {
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-        console.log("Recording stopped");
-      }
-      
-      if (snapshotInterval) clearTimeout(snapshotInterval);
-      
-      // Take final snapshot
-      takeSnapshot();
-    }
-
-    function takeSnapshot() {
-      if (snapshots.length >= 3) return;
-      
-      // Use poseCanvas for snapshots too
-      const canvas = document.getElementById('poseCanvas');
-      if (!canvas) return;
-      
+    async function stopRecording() {
       try {
-        const dataURL = canvas.toDataURL('image/png');
-        snapshots.push(dataURL);
-        console.log("Snapshot taken (Camera)");
+        await fetch('/api/recording/stop', { method: 'POST' });
+        console.log("Server recording stopped");
       } catch (e) {
-        console.error("Snapshot failed", e);
+        console.error("Failed to stop server recording", e);
       }
     }
 
+    // Legacy client-side recording removed/disabled
     async function uploadMedia(scoreId) {
-      if (recordedChunks.length === 0 && snapshots.length === 0) return;
-      
-      const blob = new Blob(recordedChunks, { type: 'video/webm' });
-      const formData = new FormData();
-      
-      formData.append('video', blob, `game_${scoreId}.webm`);
-      
-      snapshots.forEach((snap, index) => {
-        // Convert dataURL to blob
-        const byteString = atob(snap.split(',')[1]);
-        const mimeString = snap.split(',')[0].split(':')[1].split(';')[0];
-        const ab = new ArrayBuffer(byteString.length);
-        const ia = new Uint8Array(ab);
-        for (let i = 0; i < byteString.length; i++) {
-          ia[i] = byteString.charCodeAt(i);
-        }
-        const imgBlob = new Blob([ab], { type: mimeString });
-        
-        formData.append('images', imgBlob, `game_${scoreId}_img_${index}.png`);
-      });
-      
-      try {
-        const response = await fetch(`/api/upload_media/${scoreId}`, {
-          method: 'POST',
-          body: formData
-        });
-        
-        if (response.ok) {
-          console.log("Media uploaded successfully");
-        } else {
-          console.error("Media upload failed");
-        }
-      } catch (e) {
-        console.error("Error uploading media", e);
-      }
+        // No-op or handle images if needed
     }
 
     // ==========================================
@@ -1660,37 +1603,23 @@
         // 1. Calculate Target Pitch (Look at next pipe gap)
         let targetPitch = 0;
         
-        // Find the next active pipe (closest one that is still in front of us, i.e., Z < 0)
-        // Since pipes move from negative Z towards 0, the next pipe has a negative Z value.
         let nextPipe = pipes.find(p => !p.userData.passed && p.position.z < 0);
         
         if (nextPipe) {
-          // Calculate angle to look at the gap
-          // deltaY: Gap height relative to player
-          // deltaZ: Distance to pipe
           const deltaY = nextPipe.userData.gapY - player.y;
           const distZ = Math.abs(nextPipe.position.z);
           
-          // Look at the gap, but clamp distance to avoid extreme snapping when close
           const effectiveDist = Math.max(distZ, 50); 
           
-          // Negative Math.atan2 because +X rotation is down in Three.js
           targetPitch = -Math.atan2(deltaY, effectiveDist);
         } else {
-          // If no pipe (start or far between), look slightly towards horizon/center (y=25)
           const deltaY = 25 - player.y;
           targetPitch = -Math.atan2(deltaY, 100);
         }
 
-        // 2. Add Velocity Tilt (Flap = Up, Fall = Down)
-        // Flap (Positive Velocity) -> Tilt Up (Negative X Rotation)
-        // Fall (Negative Velocity) -> Tilt Down (Positive X Rotation)
         const velocityTilt = player.velocity * 0.015; 
-
-        // Combine
         const totalTargetX = targetPitch + velocityTilt;
 
-        // Smoothly interpolate current rotation to target
         camera.rotation.x += (totalTargetX - camera.rotation.x) * 0.1;
       }
 
@@ -1711,32 +1640,84 @@
       if (newState === GameState.START) {
         resetGame();
         // Leaderboard is always visible now
+        if (inactivityTimer) clearTimeout(inactivityTimer);
       }
       
       if (newState === GameState.PLAYING) {
         // Leaderboard stays visible
         startRecording();
+        if (inactivityTimer) clearTimeout(inactivityTimer);
       }
 
       if (newState === GameState.GAME_OVER) {
         stopRecording();
         canRestart = false;
         
-        // Only ask for name if score > 0
-        if (score > 0) {
-            waitingForName = true;
-        } else {
+        if (score === 0) {
+            // Auto-save zero score without asking for name
             waitingForName = false;
-            // If score is 0, start restart cooldown immediately
-            setTimeout(() => {
-                canRestart = true;
-                updateGameOverUI();
-            }, 2000);
+            handleZeroScoreSubmit();
+        } else {
+            // Ask for name if score > 0
+            waitingForName = true;
+            startInactivityTimer();
         }
         
         document.getElementById('leaderboard').classList.remove('hidden');
         updateGameOverUI();
       }
+    }
+    
+    async function handleZeroScoreSubmit() {
+        // Automatically submit score 0 with hidden name
+        try {
+            const response = await fetch('/api/scores', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    name: "-", 
+                    score: 0, 
+                    link_recording: true,
+                    recording_filename: currentRecordingFilename
+                })
+            });
+            
+            if (response.ok) {
+                // Success
+            }
+        } catch (e) {
+            console.error("Zero score auto-save failed", e);
+        }
+        
+        // Start restart timer logic
+        waitingForName = false;
+        canRestart = false;
+        document.getElementById('rechargingState').style.display = 'flex';
+        
+        setTimeout(() => {
+            canRestart = true;
+            gameOverTime = Date.now() - 2500;
+            updateGameOverUI();
+        }, 2000);
+    }
+
+    function startInactivityTimer() {
+        if (inactivityTimer) clearTimeout(inactivityTimer);
+        inactivityTimer = setTimeout(() => {
+            // Timeout - skip saving and reset
+            console.log("Inactivity timeout - resetting");
+            waitingForName = false;
+            
+            // Clean up recording if needed (not saving)
+            // Reset to ready state
+            setGameState(GameState.START);
+        }, INACTIVITY_TIMEOUT);
+    }
+
+    function resetInactivityTimer() {
+        if (gameState === GameState.GAME_OVER && waitingForName) {
+            startInactivityTimer();
+        }
     }
 
     function updateUI() {
@@ -1857,10 +1838,14 @@
     
     // Allow pressing Enter to submit name
     document.getElementById('playerNameInput').addEventListener('keypress', function (e) {
+      resetInactivityTimer(); // Reset timer on typing
       if (e.key === 'Enter') {
         handleNameSubmit();
       }
     });
+    
+    // Also reset timer on any input change
+    document.getElementById('playerNameInput').addEventListener('input', resetInactivityTimer);
 
     // ==========================================
     // INITIALIZE GAME

@@ -35,11 +35,19 @@ def main():
     RIGHT_PANEL_W = WINDOW_W - LEFT_PANEL_W
     
     # Grid for 6 games: 2 columns, 3 rows
+<<<<<<< HEAD
     COLS = 2
     ROWS = 3
     # Logic size for the game (fixed coordinate system)
     LOGIC_GAME_W = 480 
     LOGIC_GAME_H = 320 
+=======
+    COLS = 3
+    ROWS = 2
+    # Logic size for the game (fixed coordinate system)
+    LOGIC_GAME_W = 17 
+    LOGIC_GAME_H = 17 
+>>>>>>> 828a40c (update 02-19 22:45)
     
     # Draw size (dynamic)
     DRAW_GAME_W = LEFT_PANEL_W // COLS
@@ -54,6 +62,10 @@ def main():
 
     # Focus Mode State
     focused_game_idx = 0
+<<<<<<< HEAD
+=======
+    view_mode = 0 # 0: Grid, 1: Fullscreen
+>>>>>>> 828a40c (update 02-19 22:45)
     dashboard_mode = 0 # 0: Default (Focused Agent), 1: Stats Only, 2: Full Grid (Future?)
 
     # Time Accumulator for Logic Updates
@@ -90,6 +102,16 @@ def main():
                 try:
                     agent.epsilon = int(cmd.split("_")[2])
                 except: pass
+<<<<<<< HEAD
+=======
+            elif cmd.startswith("FOCUS_"):
+                try:
+                    focused_game_idx = int(cmd.split("_")[1])
+                    view_mode = 1 # Switch to fullscreen on focus
+                except: pass
+            elif cmd == "VIEW_GRID":
+                view_mode = 0
+>>>>>>> 828a40c (update 02-19 22:45)
 
         # Time Management
         current_time = pygame.time.get_ticks()
@@ -172,6 +194,7 @@ def main():
                 # For visualization, we can just grab the latest.
 
                 for i, game in enumerate(games):
+<<<<<<< HEAD
                     # 1. Get State
                     state_old = agent.get_state(game)
 
@@ -206,6 +229,47 @@ def main():
                         
                         if score > (max(agent.score_history[:-1]) if len(agent.score_history) > 1 else 0):
                             agent.model.save()
+=======
+                    try:
+                        # 1. Get State
+                        state_old = agent.get_state(game)
+
+                        # 2. Get Move
+                        final_move = agent.get_action(state_old)
+                        
+                        # Capture activations ONLY for the focused game
+                        if i == focused_game_idx:
+                            focused_activations = {
+                                'input': agent.model.activation_input.clone() if agent.model.activation_input is not None else None,
+                                'hidden': agent.model.activation_hidden.clone() if agent.model.activation_hidden is not None else None,
+                                'output': agent.model.activation_output.clone() if agent.model.activation_output is not None else None
+                            }
+
+                        # 3. Perform Move
+                        reward, done, score = game.play_step(final_move)
+                        
+                        # 4. Train Short Memory
+                        state_new = agent.get_state(game)
+                        agent.train_short_memory(state_old, final_move, reward, state_new, done)
+                        agent.remember(state_old, final_move, reward, state_new, done)
+
+                        if done:
+                            game.reset()
+                            agent.n_games += 1
+                            agent.train_long_memory()
+
+                            # Always record score history to show progress (even 0)
+                            agent.score_history.append(score)
+                            mean_score = np.mean(agent.score_history[-100:])
+                            agent.mean_score_history.append(mean_score)
+                            
+                            if score > (max(agent.score_history[:-1]) if len(agent.score_history) > 1 else 0):
+                                agent.model.save()
+                    except Exception as e:
+                        print(f"CRASH in Game {i}: {e}")
+                        game.reset() # Reset only the crashed game
+                        continue # Continue to next game
+>>>>>>> 828a40c (update 02-19 22:45)
                 
                 # --- LOGIC UPDATE END ---
                 
@@ -235,6 +299,7 @@ def main():
         # Draw everything
         screen.fill((0, 0, 0)) # Clear screen
         
+<<<<<<< HEAD
         # Draw Left Panel (Games)
         for i, game in enumerate(games):
             row = i // COLS
@@ -250,6 +315,38 @@ def main():
 
         # Draw Right Panel (Visualizer)
         visualizer.draw_dashboard(screen, agent, LEFT_PANEL_W, 0, RIGHT_PANEL_W, WINDOW_H, focused_activations, dashboard_mode, focused_game_idx, paused)
+=======
+        if view_mode == 0:
+            # GRID VIEW
+            # Draw Left Panel (Games)
+            for i, game in enumerate(games):
+                row = i // COLS
+                col = i % COLS
+                x = col * DRAW_GAME_W
+                y = row * DRAW_GAME_H
+                
+                # Highlight focused game
+                if i == focused_game_idx:
+                    # Add gap between games for visibility
+                    pygame.draw.rect(screen, (255, 255, 0), (x+2, y+2, DRAW_GAME_W-4, DRAW_GAME_H-4), 4)
+                
+                # Draw game with slight padding to separate them
+                game.draw(screen, x+5, y+5, DRAW_GAME_W-10, DRAW_GAME_H-10, interpolation=alpha)
+
+            # Draw Right Panel (Visualizer)
+            visualizer.draw_dashboard(screen, agent, LEFT_PANEL_W, 0, RIGHT_PANEL_W, WINDOW_H, focused_activations, dashboard_mode, focused_game_idx, paused)
+            
+        else:
+            # FULLSCREEN FOCUS VIEW
+            # Draw only the focused game using full window dimensions
+            # We skip the visualizer in this mode to maximize the game view
+            games[focused_game_idx].draw(screen, 0, 0, WINDOW_W, WINDOW_H, interpolation=alpha)
+            
+            # Optional: Overlay some minimal info
+            font = pygame.font.SysFont('Arial', 24)
+            text = font.render(f"Agent {focused_game_idx+1} | Score: {games[focused_game_idx].score}", True, (255, 255, 255))
+            screen.blit(text, (20, 20))
+>>>>>>> 828a40c (update 02-19 22:45)
 
         # Capture and Stream Frame (Every ~33ms = 30FPS)
         if current_time - last_stream_time > 33: 

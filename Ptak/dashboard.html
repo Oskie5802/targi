@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<<<<<<< HEAD
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
@@ -222,10 +223,255 @@
                     </div>
                 </div>
             </div>
+=======
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake AI Dashboard</title>
+    <style>
+        body {
+            background-color: #1e1e2e; /* Dark background */
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        /* Header Area with Tabs and Speed */
+        .header-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .tabs-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .tab-btn {
+            background-color: #45475a; /* Dark gray */
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: background-color 0.2s;
+        }
+
+        .tab-btn.active {
+            background-color: #585b70; /* Slightly lighter for active? Or just standard style */
+            border: 1px solid #7f849c;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .speed-label {
+            font-size: 14px;
+            color: #cdd6f4;
+            margin-right: 5px;
+        }
+
+        .speed-btn {
+            background-color: #45475a;
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        
+        .speed-btn:active {
+            transform: translateY(2px);
+        }
+
+        /* Focus Area */
+        .focus-area {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .focus-label {
+            color: #cdd6f4;
+            font-size: 16px;
+            margin-right: 5px;
+        }
+
+        .focus-btn {
+            background-color: #45475a;
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+        }
+
+        .focus-btn.active {
+            background-color: #facc15; /* Bright Yellow */
+            color: black;
+            font-weight: bold;
+        }
+
+        /* Main Content Area (Placeholder for where the view would be if it was in dashboard, 
+           but based on request, this controls the external game monitor. 
+           We can keep the stream here too if needed, but the UI request focused on controls) */
+        .main-content {
+            flex-grow: 1;
+            background-color: #11111b;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            border: 1px solid #313244;
+        }
+        
+        .game-stream {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* Bottom Action Buttons */
+        .action-area {
+            display: flex;
+            justify-content: flex-end; /* Align to right as per image? Image showed bottom right */
+            gap: 15px;
+        }
+
+        .action-btn {
+            border: none;
+            padding: 12px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            text-transform: uppercase;
+        }
+
+        .btn-pause {
+            background-color: #4ade80; /* Green */
+        }
+
+        .btn-save {
+            background-color: #60a5fa; /* Blue */
+        }
+
+        .btn-help {
+            background-color: #7f5af0; /* Purple (approx) */
+            padding: 12px 20px; /* Smaller width for ? */
+        }
+        
+        /* Help modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background: #313244;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Header: Tabs and Speed -->
+    <div class="header-area">
+        <div class="tabs-container">
+            <button class="tab-btn active" onclick="switchTab('focus')">Focus View</button>
+            <button class="tab-btn" onclick="switchTab('analytics')">Analytics</button>
+        </div>
+
+        <div class="speed-control">
+            <span class="speed-label">Speed</span>
+            <button class="speed-btn" onclick="changeSpeed(-5)">-</button>
+            <button class="speed-btn" onclick="changeSpeed(5)">+</button>
+        </div>
+    </div>
+
+    <!-- Focus Selectors -->
+    <div class="focus-area">
+        <span class="focus-label">Focus:</span>
+        <button class="focus-btn active" id="btn-focus-0" onclick="setFocus(0)">1</button>
+        <button class="focus-btn" id="btn-focus-1" onclick="setFocus(1)">2</button>
+        <button class="focus-btn" id="btn-focus-2" onclick="setFocus(2)">3</button>
+        <button class="focus-btn" id="btn-focus-3" onclick="setFocus(3)">4</button>
+        <button class="focus-btn" id="btn-focus-4" onclick="setFocus(4)">5</button>
+        <button class="focus-btn" id="btn-focus-5" onclick="setFocus(5)">6</button>
+    </div>
+
+    <!-- Main Content (Stream) -->
+    <div class="main-content" id="main-view">
+        <img src="/api/stream/snake/mjpeg" class="game-stream" alt="Stream loading...">
+    </div>
+    
+    <!-- Analytics Content (Hidden by default) -->
+    <div class="main-content" id="analytics-view" style="display: none; color: #a6adc8; flex-direction: column; padding: 20px;">
+        <h3>Performance Analytics</h3>
+        <p>Current Score: <span id="stat-score" style="color: white; font-weight: bold;">0</span></p>
+        <p>Generation: <span id="stat-gen" style="color: white; font-weight: bold;">0</span></p>
+        <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; border: 1px dashed #45475a; margin-top: 20px; border-radius: 8px;">
+            Analytics Chart Placeholder
+        </div>
+    </div>
+
+    <!-- Bottom Actions -->
+    <div class="action-area">
+        <button class="action-btn btn-pause" onclick="togglePause()" id="btn-pause">PAUSE</button>
+        <button class="action-btn btn-save" onclick="saveModel()">SAVE</button>
+        <button class="action-btn btn-help" onclick="toggleHelp()">?</button>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal" id="help-modal" onclick="toggleHelp()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h3>Controls Help</h3>
+            <ul>
+                <li><b>Focus 1-6:</b> Switch main view to specific agent and maximize it on game screen.</li>
+                <li><b>Speed +/-:</b> Adjust simulation speed (FPS).</li>
+                <li><b>PAUSE:</b> Freeze/Resume simulation.</li>
+                <li><b>SAVE:</b> Force save current model checkpoint.</li>
+            </ul>
+            <button class="action-btn btn-save" style="width: 100%; margin-top: 20px;" onclick="toggleHelp()">Close</button>
+>>>>>>> 828a40c (update 02-19 22:45)
         </div>
     </div>
 
     <script>
+<<<<<<< HEAD
         // --- UTILS ---
         function log(msg) {
             const c = document.getElementById('log-console');
@@ -271,10 +517,111 @@
         // Removed canvas drawing logic in favor of MJPEG stream
         
         // Snake Polling (Only Stats)
+=======
+        let currentFocus = 0;
+        let isPaused = false;
+        let currentSpeed = 30;
+
+        // Init
+        fetchSettings();
+
+        function setFocus(index) {
+            // Update UI
+            document.querySelectorAll('.focus-btn').forEach((btn, idx) => {
+                if (idx === index) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+            
+            currentFocus = index;
+            
+            // Send Command
+            sendCommand(`FOCUS_${index}`);
+        }
+
+        function changeSpeed(delta) {
+            currentSpeed += delta;
+            if (currentSpeed < 5) currentSpeed = 5;
+            if (currentSpeed > 120) currentSpeed = 120;
+            
+            fetch('/api/snake/settings', { 
+                method: 'POST', 
+                headers:{'Content-Type':'application/json'}, 
+                body: JSON.stringify({fps: currentSpeed})
+            });
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            updatePauseBtn();
+            
+            fetch('/api/snake/settings', { 
+                method: 'POST', 
+                headers:{'Content-Type':'application/json'}, 
+                body: JSON.stringify({paused: isPaused})
+            });
+        }
+        
+        function updatePauseBtn() {
+            const btn = document.getElementById('btn-pause');
+            if (isPaused) {
+                btn.innerText = "RESUME";
+                btn.style.backgroundColor = "#eab308"; // Yellow-ish for resume
+            } else {
+                btn.innerText = "PAUSE";
+                btn.style.backgroundColor = "#4ade80"; // Green
+            }
+        }
+
+        function saveModel() {
+            sendCommand('SAVE_MODEL');
+            alert('Save command sent!');
+        }
+
+        function toggleHelp() {
+            const modal = document.getElementById('help-modal');
+            modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            if (tab === 'focus') {
+                document.querySelector('.tab-btn:first-child').classList.add('active');
+                document.getElementById('main-view').style.display = 'flex';
+                document.getElementById('analytics-view').style.display = 'none';
+            } else {
+                document.querySelector('.tab-btn:last-child').classList.add('active');
+                document.getElementById('main-view').style.display = 'none';
+                document.getElementById('analytics-view').style.display = 'flex';
+            }
+        }
+
+        function sendCommand(cmd) {
+            fetch('/api/snake/command', { 
+                method: 'POST', 
+                headers:{'Content-Type':'application/json'}, 
+                body: JSON.stringify({command: cmd})
+            });
+        }
+        
+        function fetchSettings() {
+            fetch('/api/snake/settings')
+                .then(r => r.json())
+                .then(data => {
+                    if(data.fps) currentSpeed = data.fps;
+                    if(data.paused !== undefined) {
+                        isPaused = data.paused;
+                        updatePauseBtn();
+                    }
+                });
+        }
+
+        // Polling for stats
+>>>>>>> 828a40c (update 02-19 22:45)
         setInterval(() => {
             fetch('/api/snake/state')
                 .then(r => r.json())
                 .then(data => {
+<<<<<<< HEAD
                     snakeState = data;
                     document.getElementById('snake-score').innerText = data.score;
                     document.getElementById('snake-gen').innerText = data.n_games;
@@ -371,5 +718,13 @@
         loadMedia();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+=======
+                    document.getElementById('stat-score').innerText = data.score;
+                    document.getElementById('stat-gen').innerText = data.n_games;
+                });
+        }, 1000);
+
+    </script>
+>>>>>>> 828a40c (update 02-19 22:45)
 </body>
 </html>

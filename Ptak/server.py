@@ -4,6 +4,9 @@ import os
 import time
 import io
 import threading
+import subprocess
+import shutil
+import uuid
 
 app = Flask(__name__, static_url_path='')
 
@@ -45,6 +48,83 @@ ptak_frame_event = threading.Event()
 
 latest_ptak_camera_frame = None
 ptak_camera_frame_event = threading.Event()
+
+# --- STREAM RECORDER ---
+class StreamRecorder:
+    def __init__(self):
+        self.proc = None
+        self.lock = threading.Lock()
+        self.current_file = None
+
+    def start(self, filename):
+        with self.lock:
+            if self.proc:
+                self.stop()
+            
+            self.current_file = filename
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            
+            # FFmpeg command to read MJPEG from pipe and write MP4
+            # -f image2pipe: Input format
+            # -vcodec mjpeg: Input codec
+            # -r 25: Assume 25 FPS (matches client interval)
+            # -i -: Read from stdin
+            # -c:v libx264: Output codec
+            # -preset ultrafast: Low CPU usage
+            # -pix_fmt yuv420p: Compatibility
+            cmd = [
+                'ffmpeg', '-y', 
+                '-f', 'image2pipe', 
+                '-vcodec', 'mjpeg', 
+                '-r', '25', 
+                '-i', '-', 
+                '-c:v', 'libx264', 
+                '-preset', 'ultrafast', 
+                '-pix_fmt', 'yuv420p', 
+                filepath
+            ]
+            
+            try:
+                self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                print(f"Recording started: {filepath}")
+            except Exception as e:
+                print(f"Failed to start recording: {e}")
+
+    def write(self, frame_data):
+        # Write frame to FFmpeg stdin
+        # Only write if process is running
+        if self.proc and self.proc.stdin:
+            try:
+                # Use a separate thread or non-blocking write if possible, 
+                # but for now we trust OS pipe buffer.
+                # Just catch broken pipe errors to avoid crashing server.
+                self.proc.stdin.write(frame_data)
+                self.proc.stdin.flush()
+            except BrokenPipeError:
+                print("Recording pipe broken, stopping.")
+                self.stop()
+            except Exception as e:
+                # Ignore other errors during write to avoid spamming logs or crashing
+                pass
+
+    def stop(self):
+        with self.lock:
+            if self.proc:
+                try:
+                    if self.proc.stdin:
+                        self.proc.stdin.close()
+                    self.proc.wait(timeout=2)
+                except Exception as e:
+                    print(f"Error stopping recording: {e}")
+                    if self.proc:
+                        self.proc.kill()
+                
+                self.proc = None
+                print("Recording stopped")
+                return self.current_file
+            return None
+
+recorder = StreamRecorder()
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -212,6 +292,10 @@ def update_ptak_camera_frame():
     global latest_ptak_camera_frame
     if request.data:
         latest_ptak_camera_frame = request.data
+        
+        # Write to recorder if active
+        recorder.write(request.data)
+        
         ptak_camera_frame_event.set()
         return "OK", 200
     return "No data", 400
@@ -231,6 +315,22 @@ def gen_ptak_camera_frames():
 @app.route('/api/stream/ptak/camera/mjpeg')
 def stream_ptak_camera_mjpeg():
     return Response(gen_ptak_camera_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+# --- API dla Nagrywania (New) ---
+
+@app.route('/api/recording/start', methods=['POST'])
+def start_recording():
+    # Use unique filename to avoid conflicts
+    unique_id = str(uuid.uuid4())
+    filename = f"rec_{int(time.time())}_{unique_id[:8]}.mp4"
+    recorder.start(filename)
+    return jsonify({'status': 'started', 'filename': filename})
+
+@app.route('/api/recording/stop', methods=['POST'])
+def stop_recording():
+    filename = recorder.stop()
+    return jsonify({'status': 'stopped', 'filename': filename})
 
 
 # --- API dla Mediów Ptaka ---
@@ -305,10 +405,33 @@ def add_score():
         name = data.get('name', 'ANON')
         score = data.get('score', 0)
         
+        # Check if we should link the temporary recording
+        link_recording = data.get('link_recording', False)
+        recording_filename = data.get('recording_filename', None)
+        
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute('INSERT INTO scores (name, score) VALUES (?, ?)', (name, score))
         score_id = c.lastrowid
+        
+        # Handle recording linking
+        if link_recording and recording_filename:
+            temp_path = os.path.join(UPLOAD_FOLDER, recording_filename)
+            new_filename = f"game_{score_id}.mp4"
+            new_path = os.path.join(UPLOAD_FOLDER, new_filename)
+            
+            if os.path.exists(temp_path):
+                try:
+                    # Use shutil.move for cross-fs safety
+                    shutil.move(temp_path, new_path)
+                    
+                    video_url = f"/uploads/{new_filename}"
+                    c.execute("UPDATE scores SET video_path = ? WHERE id = ?", (video_url, score_id))
+                except Exception as e:
+                    print(f"Error renaming recording: {e}")
+            else:
+                 print(f"Recording file not found: {temp_path}")
+        
         conn.commit()
         conn.close()
         
@@ -323,10 +446,10 @@ def upload_media(score_id):
         c = conn.cursor()
         
         video = request.files.get('video')
-        images = request.files.getlist('images') # Expecting list of images
+        # images = request.files.getlist('images') # Removed
         
         video_path = None
-        image_paths = [None, None, None]
+        # image_paths = [None, None, None]
         
         if video:
             filename = f"game_{score_id}.webm"
@@ -334,17 +457,6 @@ def upload_media(score_id):
             video.save(filepath)
             video_path = f"/uploads/{filename}"
             c.execute("UPDATE scores SET video_path = ? WHERE id = ?", (video_path, score_id))
-            
-        for i, img in enumerate(images):
-            if i >= 3: break
-            filename = f"game_{score_id}_img_{i}.png"
-            filepath = os.path.join(UPLOAD_FOLDER, filename)
-            img.save(filepath)
-            image_paths[i] = f"/uploads/{filename}"
-            
-            # Update specific column
-            col_name = f"image{i+1}_path"
-            c.execute(f"UPDATE scores SET {col_name} = ? WHERE id = ?", (image_paths[i], score_id))
             
         conn.commit()
         conn.close()
