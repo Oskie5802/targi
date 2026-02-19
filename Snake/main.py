@@ -35,11 +35,6 @@ def main():
     RIGHT_PANEL_W = WINDOW_W - LEFT_PANEL_W
     
     # Grid for 6 games: 2 columns, 3 rows
-    COLS = 2
-    ROWS = 3
-    # Logic size for the game (fixed coordinate system)
-    LOGIC_GAME_W = 480 
-    LOGIC_GAME_H = 320 
     COLS = 3
     ROWS = 2
     # Logic size for the game (fixed coordinate system)
@@ -54,6 +49,9 @@ def main():
     # We use fixed logic size so the AI learns on a consistent grid, 
     # but we will scale the drawing to whatever the window size is.
     games = [SnakeGameAI(w=LOGIC_GAME_W, h=LOGIC_GAME_H) for _ in range(COLS * ROWS)]
+    # Cooldown timers for each game (in frames/steps)
+    game_cooldowns = [0] * len(games)
+    
     agent = Agent()
     visualizer = Visualizer(RIGHT_PANEL_W, WINDOW_H)
 
@@ -91,6 +89,7 @@ def main():
                 for g in games:
                     g.reset()
                 agent.n_games = 0
+                game_cooldowns = [0] * len(games)
             elif cmd == "SAVE_MODEL":
                 agent.model.save()
             elif cmd.startswith("SET_EPSILON_"):
@@ -187,40 +186,14 @@ def main():
                 # For visualization, we can just grab the latest.
 
                 for i, game in enumerate(games):
-                    # 1. Get State
-                    state_old = agent.get_state(game)
+                    # Check Cooldown
+                    if game_cooldowns[i] > 0:
+                        game_cooldowns[i] -= 1
+                        # If cooldown just finished, reset the game
+                        if game_cooldowns[i] == 0:
+                            game.reset()
+                        continue # Skip update for this game
 
-                    # 2. Get Move
-                    final_move = agent.get_action(state_old)
-                    
-                    # Capture activations ONLY for the focused game
-                    if i == focused_game_idx:
-                        focused_activations = {
-                            'input': agent.model.activation_input.clone() if agent.model.activation_input is not None else None,
-                            'hidden': agent.model.activation_hidden.clone() if agent.model.activation_hidden is not None else None,
-                            'output': agent.model.activation_output.clone() if agent.model.activation_output is not None else None
-                        }
-
-                    # 3. Perform Move
-                    reward, done, score = game.play_step(final_move)
-                    
-                    # 4. Train Short Memory
-                    state_new = agent.get_state(game)
-                    agent.train_short_memory(state_old, final_move, reward, state_new, done)
-                    agent.remember(state_old, final_move, reward, state_new, done)
-
-                    if done:
-                        game.reset()
-                        agent.n_games += 1
-                        agent.train_long_memory()
-
-                        # Always record score history to show progress (even 0)
-                        agent.score_history.append(score)
-                        mean_score = np.mean(agent.score_history[-100:])
-                        agent.mean_score_history.append(mean_score)
-                        
-                        if score > (max(agent.score_history[:-1]) if len(agent.score_history) > 1 else 0):
-                            agent.model.save()
                     try:
                         # 1. Get State
                         state_old = agent.get_state(game)
@@ -245,7 +218,15 @@ def main():
                         agent.remember(state_old, final_move, reward, state_new, done)
 
                         if done:
-                            game.reset()
+                            # Instead of immediate reset, start cooldown
+                            # 1 second cooldown = fps frames
+                            game_cooldowns[i] = int(fps) 
+                            
+                            # Trigger crash visual on the current game state
+                            game.crash()
+                            
+                            # Do NOT reset yet. Wait for cooldown to finish.
+                            
                             agent.n_games += 1
                             agent.train_long_memory()
 
@@ -336,8 +317,8 @@ def main():
             text = font.render(f"Agent {focused_game_idx+1} | Score: {games[focused_game_idx].score}", True, (255, 255, 255))
             screen.blit(text, (20, 20))
 
-        # Capture and Stream Frame (Every ~33ms = 30FPS)
-        if current_time - last_stream_time > 33: 
+        # Capture and Stream Frame (Limit to 15 FPS for CPU optimization)
+        if current_time - last_stream_time > 66: # ~15 FPS
              last_stream_time = current_time
              try:
                  # Resize for dashboard? 
