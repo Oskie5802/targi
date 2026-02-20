@@ -212,10 +212,22 @@ class SnakeGameAI:
         start_x = x_offset + (width - board_w) / 2
         start_y = y_offset + (height - board_h) / 2
         
+        # Define the playable area rect
+        play_area_rect = pygame.Rect(start_x, start_y, board_w, board_h)
+
+        # Draw Border/Background Container
+        border_thickness = 4
+        border_rect = play_area_rect.inflate(border_thickness*2, border_thickness*2)
+        pygame.draw.rect(surface, (40, 40, 40), border_rect, border_radius=4) # Dark gray border bg
+        pygame.draw.rect(surface, (100, 100, 100), border_rect, border_thickness, border_radius=4) # Lighter border line
+
+        # Set clipping to ensure snake doesn't draw outside the board
+        original_clip = surface.get_clip()
+        surface.set_clip(play_area_rect)
+
         # Draw Background (Checkered)
         # Fill the background area first (optional, for safety)
-        full_rect = pygame.Rect(start_x, start_y, board_w, board_h)
-        pygame.draw.rect(surface, BG_GREEN_DARK, full_rect) # Default dark green
+        pygame.draw.rect(surface, BG_GREEN_DARK, play_area_rect) # Default dark green
 
         for r in range(self.h):
             for c in range(self.w):
@@ -236,9 +248,14 @@ class SnakeGameAI:
             prev_head = self.snake[1]
             curr_head = self.snake[0]
             
+            # Clamp current head to board limits for visualization to prevent "stretching" out of bounds
+            # This fixes the visual glitch when hitting walls
+            clamped_head_x = max(0, min(self.w - 1, curr_head.x))
+            clamped_head_y = max(0, min(self.h - 1, curr_head.y))
+            
             # Lerp
-            vh_x = prev_head.x + (curr_head.x - prev_head.x) * interpolation
-            vh_y = prev_head.y + (curr_head.y - prev_head.y) * interpolation
+            vh_x = prev_head.x + (clamped_head_x - prev_head.x) * interpolation
+            vh_y = prev_head.y + (clamped_head_y - prev_head.y) * interpolation
             
             visual_head = (vh_x, vh_y)
         else:
@@ -362,3 +379,9 @@ class SnakeGameAI:
             text = font.render(f"!", True, (255, 255, 255))
             text_rect = text.get_rect(center=(x_offset + width/2, y_offset + height/2))
             surface.blit(text, text_rect)
+            
+        # Restore original clip (VERY IMPORTANT)
+        if original_clip:
+            surface.set_clip(original_clip)
+        else:
+            surface.set_clip(None)
