@@ -13,7 +13,7 @@ import io
 WINDOW_W = 1920
 WINDOW_H = 1080
 INITIAL_FPS = 30 
-SERVER_URL = "https://192.168.55.101:5001"
+SERVER_URL = "https://192.168.0.110:5001"
 
 def main():
     global WINDOW_W, WINDOW_H
