@@ -7,7 +7,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class NetworkManager:
-    def __init__(self, url="https://localhost:5001"):
+    def __init__(self, url="https://192.168.0.110:5001"):
         self.url = url
         self.state_buffer = None
         self.frame_buffer = None
