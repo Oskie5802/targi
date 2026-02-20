@@ -405,7 +405,8 @@ def get_scores():
         limit = request.args.get('limit', 100, type=int)
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute('SELECT name, score, id, video_path FROM scores ORDER BY score DESC LIMIT ?', (limit,))
+        # Zmieniono zapytanie, aby filtrowac wyniki <= 0
+        c.execute('SELECT name, score, id, video_path FROM scores WHERE score > 0 ORDER BY score DESC LIMIT ?', (limit,))
         rows = c.fetchall()
         conn.close()
         
