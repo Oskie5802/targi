@@ -757,7 +757,7 @@
     // ==========================================
     // SCREEN STREAMING (For Dashboard Live Preview)
     // ==========================================
-    const STREAM_TARGET_WIDTH = 480; // Downscale to 480px width for performance
+    const STREAM_TARGET_WIDTH = 320; // Downscale to 320px width for better performance (was 480)
     
     // Offscreen canvases for resizing
     const gameStreamCanvas = document.createElement('canvas');
@@ -777,7 +777,7 @@
             if (isBusyRef.value) {
                 isBusyRef.value = false;
             }
-        }, 3000);
+        }, 2000); // Reduced to 2s
 
         if (!sourceCanvas || sourceCanvas.width === 0 || sourceCanvas.height === 0) {
             clearTimeout(safetyReset);
@@ -796,7 +796,7 @@
             targetCanvas.toBlob((blob) => {
                 if (blob) {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 1000); // 1s timeout for upload
+                    const timeoutId = setTimeout(() => controller.abort(), 800); // 800ms timeout for upload
 
                     fetch(url, {
                         method: 'POST',
@@ -818,13 +818,13 @@
                     clearTimeout(safetyReset);
                     isBusyRef.value = false;
                 }
-            }, 'image/jpeg', 0.5);
+            }, 'image/jpeg', 0.4); // Quality 0.4
         } else {
             // If already small, send directly
              sourceCanvas.toBlob((blob) => {
                 if (blob) {
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 1000); // 1s timeout
+                    const timeoutId = setTimeout(() => controller.abort(), 800);
 
                     fetch(url, {
                         method: 'POST',
@@ -846,7 +846,7 @@
                     clearTimeout(safetyReset);
                     isBusyRef.value = false;
                 }
-            }, 'image/jpeg', 0.5);
+            }, 'image/jpeg', 0.4);
         }
     }
 
@@ -854,7 +854,7 @@
         if (renderer && renderer.domElement) {
             sendFrame(renderer.domElement, gameStreamCanvas, gameStreamCtx, '/api/stream/ptak', gameBusy);
         }
-        setTimeout(streamGameLoop, 60); // Cap at ~15 FPS
+        setTimeout(streamGameLoop, 16); // Cap at ~60 FPS
     }
 
     function streamCameraLoop() {
@@ -862,7 +862,7 @@
         if (poseCanvas) {
              sendFrame(poseCanvas, cameraStreamCanvas, cameraStreamCtx, '/api/stream/ptak/camera', cameraBusy);
         }
-        setTimeout(streamCameraLoop, 60); // Cap at ~15 FPS
+        setTimeout(streamCameraLoop, 16); // Cap at ~60 FPS
     }
 
     // Start loops with a slight delay
@@ -949,75 +949,80 @@
       });
     }
 
+    // ==========================================
+    // SCORE SUBMISSION HELPER
+    // ==========================================
+    async function submitGameScore(playerName) {
+        const finalName = playerName || "ANON";
+        console.log(`Submitting score for ${finalName}: ${score}`);
+        
+        try {
+            // Ensure we have the filename
+            const recFilename = await getRecordingFilename();
+            
+            const response = await fetch('/api/scores', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    name: finalName, 
+                    score: score, 
+                    link_recording: true,
+                    recording_filename: recFilename
+                })
+            });
+            
+            if (response.ok) {
+                console.log("Score saved successfully");
+                loadLeaderboard();
+            } else {
+                console.error("Server returned error saving score");
+            }
+        } catch (e) {
+            console.error("Failed to save score:", e);
+            // Local fallback
+            leaderboard.push({ name: finalName, score: score });
+            try {
+                localStorage.setItem('wingman_leaderboard_fallback', JSON.stringify(leaderboard));
+            } catch(localErr) {}
+            updateLeaderboardDisplay();
+        }
+    }
+
+    function setupRestartTimer() {
+        canRestart = false;
+        document.getElementById('rechargingState').style.display = 'flex';
+        
+        // Wait for cooldown before allowing restart
+        setTimeout(() => {
+            canRestart = true;
+            // Ensure logic in handleFlap passes check (simulated old game over time)
+            gameOverTime = Date.now() - 2500; 
+            updateGameOverUI();
+        }, 2000);
+    }
+
     async function handleNameSubmit() {
       const input = document.getElementById('playerNameInput');
       const name = input.value.trim().toUpperCase();
       const submitBtn = document.getElementById('submitNameButton');
       
-      // If no name entered, do not save, just reset
-      if (!name) {
-          waitingForName = false;
-          setGameState(GameState.START);
-          return;
-      }
-      
-      // Stop inactivity timer since user submitted
+      // Stop inactivity timer
       if (inactivityTimer) clearTimeout(inactivityTimer);
 
-      // Disable button to prevent double submit
+      // Disable button
       submitBtn.disabled = true;
       submitBtn.innerText = "...";
 
-      const recFilename = await getRecordingFilename();
-
-      try {
-        const response = await fetch('/api/scores', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-                name: name, 
-                score: score, 
-                link_recording: true,
-                recording_filename: recFilename
-            })
-        });
-        
-        if (!response.ok) throw new Error('Server error');
-        
-        const result = await response.json();
-        
-        // Reload leaderboard to show new score
-        await loadLeaderboard();
-        
-      } catch (e) {
-        console.error("Failed to save score to server", e);
-        // Fallback save locally
-        leaderboard.push({ name, score });
-        try {
-            localStorage.setItem('wingman_leaderboard_fallback', JSON.stringify(leaderboard));
-        } catch(localErr) {}
-        updateLeaderboardDisplay();
-      }
+      // Always save, even if name is empty (defaults to ANON in submitGameScore)
+      await submitGameScore(name);
       
       waitingForName = false;
-      input.value = ''; // Reset input
+      input.value = ''; 
       submitBtn.disabled = false;
       submitBtn.innerText = "ZAPISZ (ENTER)";
       
       updateGameOverUI();
-      
-      // Start restart timer
-      canRestart = false;
-      document.getElementById('rechargingState').style.display = 'flex';
-      
-      // Wait for cooldown before allowing restart
-      setTimeout(() => {
-        canRestart = true;
-        gameOverTime = Date.now() - 2500; // Ensure logic in handleFlap passes
-        updateGameOverUI();
-      }, 2000);
+      setupRestartTimer();
     }
 
     // ==========================================
@@ -1753,7 +1758,8 @@
         if (score === 0) {
             // Auto-save zero score without asking for name
             waitingForName = false;
-            handleZeroScoreSubmit();
+            submitGameScore("-");
+            setupRestartTimer();
         } else {
             // Ask for name if score > 0
             waitingForName = true;
@@ -1765,50 +1771,16 @@
       }
     }
     
-    async function handleZeroScoreSubmit() {
-        // Automatically submit score 0 with hidden name
-        try {
-            const recFilename = await getRecordingFilename();
-            const response = await fetch('/api/scores', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    name: "-", 
-                    score: 0, 
-                    link_recording: true,
-                    recording_filename: recFilename
-                })
-            });
-            
-            if (response.ok) {
-                // Success
-            }
-        } catch (e) {
-            console.error("Zero score auto-save failed", e);
-        }
-        
-        // Start restart timer logic
-        waitingForName = false;
-        canRestart = false;
-        document.getElementById('rechargingState').style.display = 'flex';
-        
-        setTimeout(() => {
-            canRestart = true;
-            gameOverTime = Date.now() - 2500;
-            updateGameOverUI();
-        }, 2000);
-    }
-
     function startInactivityTimer() {
         if (inactivityTimer) clearTimeout(inactivityTimer);
         inactivityTimer = setTimeout(() => {
-            // Timeout - skip saving and reset
-            console.log("Inactivity timeout - resetting");
+            // Timeout - auto save
+            console.log("Inactivity timeout - auto saving");
             waitingForName = false;
             
-            // Clean up recording if needed (not saving)
-            // Reset to ready state
-            setGameState(GameState.START);
+            submitGameScore("ANON");
+            setupRestartTimer();
+            updateGameOverUI();
         }, INACTIVITY_TIMEOUT);
     }
 

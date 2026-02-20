@@ -71,7 +71,7 @@ class StreamRecorder:
             # FFmpeg command to read MJPEG from pipe and write MP4
             # -f image2pipe: Input format
             # -vcodec mjpeg: Input codec
-            # -r 25: Assume 25 FPS (matches client interval)
+            # -r 60: Assume 60 FPS (matches client interval)
             # -i -: Read from stdin
             # -c:v libx264: Output codec
             # -preset ultrafast: Low CPU usage
@@ -80,7 +80,7 @@ class StreamRecorder:
                 'ffmpeg', '-y', 
                 '-f', 'image2pipe', 
                 '-vcodec', 'mjpeg', 
-                '-r', '25', 
+                '-r', '60', 
                 '-i', '-', 
                 '-c:v', 'libx264', 
                 '-preset', 'ultrafast', 
