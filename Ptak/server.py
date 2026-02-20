@@ -364,15 +364,39 @@ def get_scores():
         limit = request.args.get('limit', 100, type=int)
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute('SELECT name, score, id FROM scores ORDER BY score DESC LIMIT ?', (limit,))
+        # Include video_path in selection
+        c.execute('SELECT name, score, id, video_path FROM scores ORDER BY score DESC LIMIT ?', (limit,))
         rows = c.fetchall()
         conn.close()
         
         # Formatowanie danych do JSON
-        data = [{'name': row[0], 'score': row[1], 'id': row[2]} for row in rows]
+        data = [{'name': row[0], 'score': row[1], 'id': row[2], 'video_path': row[3]} for row in rows]
         return jsonify(data)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/history', methods=['GET'])
+def get_history():
+    try:
+        limit = request.args.get('limit', 50, type=int)
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        # Get latest games
+        c.execute('SELECT name, score, id, video_path, date FROM scores ORDER BY date DESC LIMIT ?', (limit,))
+        rows = c.fetchall()
+        conn.close()
+        
+        data = [{
+            'name': row[0], 
+            'score': row[1], 
+            'id': row[2], 
+            'video_path': row[3],
+            'date': row[4]
+        } for row in rows]
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/latest_game', methods=['GET'])
 def get_latest_game():

@@ -890,6 +890,8 @@
       submitBtn.disabled = true;
       submitBtn.innerText = "...";
 
+      const recFilename = await getRecordingFilename();
+
       try {
         const response = await fetch('/api/scores', {
             method: 'POST',
@@ -900,7 +902,7 @@
                 name: name, 
                 score: score, 
                 link_recording: true,
-                recording_filename: currentRecordingFilename
+                recording_filename: recFilename
             })
         });
         
@@ -944,17 +946,26 @@
     // MEDIA RECORDING (Server-Side)
     // ==========================================
     let currentRecordingFilename = null;
+    let recordingStartPromise = null;
 
     async function startRecording() {
       try {
-        const response = await fetch('/api/recording/start', { method: 'POST' });
-        const data = await response.json();
-        if (data.status === 'started') {
-            currentRecordingFilename = data.filename;
-            console.log("Server recording started:", currentRecordingFilename);
-        }
+        recordingStartPromise = fetch('/api/recording/start', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'started') {
+                    currentRecordingFilename = data.filename;
+                    console.log("Server recording started:", currentRecordingFilename);
+                    return data.filename;
+                }
+                return null;
+            })
+            .catch(e => {
+                console.error("Failed to start server recording", e);
+                return null;
+            });
       } catch (e) {
-        console.error("Failed to start server recording", e);
+        console.error("Failed to initiate recording start", e);
       }
     }
 
@@ -965,6 +976,14 @@
       } catch (e) {
         console.error("Failed to stop server recording", e);
       }
+    }
+    
+    async function getRecordingFilename() {
+        if (currentRecordingFilename) return currentRecordingFilename;
+        if (recordingStartPromise) {
+            return await recordingStartPromise;
+        }
+        return null;
     }
 
     // Legacy client-side recording removed/disabled
@@ -1671,6 +1690,7 @@
     async function handleZeroScoreSubmit() {
         // Automatically submit score 0 with hidden name
         try {
+            const recFilename = await getRecordingFilename();
             const response = await fetch('/api/scores', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1678,7 +1698,7 @@
                     name: "-", 
                     score: 0, 
                     link_recording: true,
-                    recording_filename: currentRecordingFilename
+                    recording_filename: recFilename
                 })
             });
             
