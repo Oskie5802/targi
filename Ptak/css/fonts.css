@@ -3,5 +3,5 @@
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('PressStart2P.ttf') format('truetype');
+  src: url('/static/css/PressStart2P.ttf') format('truetype');
 }
