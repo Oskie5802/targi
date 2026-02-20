@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<<<<<<< HEAD
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
@@ -471,7 +470,6 @@
     </div>
 
     <script>
-<<<<<<< HEAD
         // --- UTILS ---
         function log(msg) {
             const c = document.getElementById('log-console');
@@ -517,7 +515,6 @@
         // Removed canvas drawing logic in favor of MJPEG stream
         
         // Snake Polling (Only Stats)
-=======
         let currentFocus = 0;
         let isPaused = false;
         let currentSpeed = 30;
@@ -616,12 +613,10 @@
         }
 
         // Polling for stats
->>>>>>> 828a40c (update 02-19 22:45)
         setInterval(() => {
             fetch('/api/snake/state')
                 .then(r => r.json())
                 .then(data => {
-<<<<<<< HEAD
                     snakeState = data;
                     document.getElementById('snake-score').innerText = data.score;
                     document.getElementById('snake-gen').innerText = data.n_games;

@@ -67,7 +67,7 @@ class StreamRecorder:
             # FFmpeg command to read MJPEG from pipe and write MP4
             # -f image2pipe: Input format
             # -vcodec mjpeg: Input codec
-            # -r 25: Assume 25 FPS (matches client interval)
+            # -r 30: Assume 30 FPS (matches client interval)
             # -i -: Read from stdin
             # -c:v libx264: Output codec
             # -preset ultrafast: Low CPU usage
@@ -76,7 +76,7 @@ class StreamRecorder:
                 'ffmpeg', '-y', 
                 '-f', 'image2pipe', 
                 '-vcodec', 'mjpeg', 
-                '-r', '25', 
+                '-r', '30', 
                 '-i', '-', 
                 '-c:v', 'libx264', 
                 '-preset', 'ultrafast', 
@@ -364,7 +364,7 @@ def get_scores():
         limit = request.args.get('limit', 100, type=int)
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute('SELECT name, score, id FROM scores ORDER BY score DESC LIMIT ?', (limit,))
+        c.execute('SELECT name, score, id FROM scores WHERE score > 0 AND name != "-" AND name != "" ORDER BY score DESC LIMIT ?', (limit,))
         rows = c.fetchall()
         conn.close()
         

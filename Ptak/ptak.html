@@ -715,10 +715,12 @@
             
             <!-- Ready to Restart State -->
             <div id="readyToRestartState" class="hidden" style="display: flex; flex-direction: column; align-items: center; gap: 1.5rem;">
-              <button id="restartButton" class="restart-button font-retro">
+              <h2 class="font-retro" style="font-size: 2rem; color: #facc15; text-align: center; animation: pulse 1s infinite;">
+                MACHAJ RĘKAMI ABY ROZPOCZĄĆ
+              </h2>
+              <button id="restartButton" class="restart-button font-retro hidden">
                 SPRÓBUJ PONOWNIE
               </button>
-              <p class="flap-hint font-retro">Machaj rękami aby spróbować ponownie</p>
             </div>
           </div>
         </div>
@@ -756,7 +758,7 @@
     // SCREEN STREAMING (For Dashboard Live Preview)
     // ==========================================
     let lastStreamTime = 0;
-    const STREAM_INTERVAL = 40; // ~25 FPS
+    const STREAM_INTERVAL = 33; // ~30 FPS
 
     function streamGameScreen() {
         const now = Date.now();
@@ -772,7 +774,7 @@
                         body: blob
                     }).catch(e => {}); // Ignore errors
                 }
-            }, 'image/jpeg', 0.6); // 60% quality is enough for preview
+            }, 'image/jpeg', 0.85); // Increased quality
         }
         
         // Stream Camera as well
@@ -786,7 +788,7 @@
                         body: blob
                     }).catch(e => {});
                 }
-            }, 'image/jpeg', 0.6);
+            }, 'image/jpeg', 0.85);
         }
     }
 
@@ -1147,6 +1149,7 @@
         },
         width: 1280,
         height: 720,
+        frameRate: 60, // Request 60fps
         facingMode: 'user' // Force front camera on mobile/tablet
       });
       
@@ -1668,26 +1671,26 @@
       }
     }
     
-    async function handleZeroScoreSubmit() {
-        // Automatically submit score 0 with hidden name
+    async function submitScoreInternal(nameVal, scoreVal) {
         try {
-            const response = await fetch('/api/scores', {
+            await fetch('/api/scores', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    name: "-", 
-                    score: 0, 
+                    name: nameVal, 
+                    score: scoreVal, 
                     link_recording: true,
                     recording_filename: currentRecordingFilename
                 })
             });
-            
-            if (response.ok) {
-                // Success
-            }
         } catch (e) {
-            console.error("Zero score auto-save failed", e);
+            console.error("Score submission failed", e);
         }
+    }
+
+    async function handleZeroScoreSubmit() {
+        // Automatically submit score 0 with hidden name
+        await submitScoreInternal("-", 0);
         
         // Start restart timer logic
         waitingForName = false;
@@ -1703,12 +1706,14 @@
 
     function startInactivityTimer() {
         if (inactivityTimer) clearTimeout(inactivityTimer);
-        inactivityTimer = setTimeout(() => {
-            // Timeout - skip saving and reset
-            console.log("Inactivity timeout - resetting");
+        inactivityTimer = setTimeout(async () => {
+            // Timeout - save as "-" and reset
+            console.log("Inactivity timeout - auto saving and resetting");
             waitingForName = false;
             
-            // Clean up recording if needed (not saving)
+            // Save current score as hidden entry
+            await submitScoreInternal("-", score);
+            
             // Reset to ready state
             setGameState(GameState.START);
         }, INACTIVITY_TIMEOUT);
