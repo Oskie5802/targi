@@ -757,43 +757,119 @@
     // ==========================================
     // SCREEN STREAMING (For Dashboard Live Preview)
     // ==========================================
-    let lastStreamTime = 0;
-    const STREAM_INTERVAL = 40; // ~25 FPS
+    const STREAM_TARGET_WIDTH = 480; // Downscale to 480px width for performance
+    
+    // Offscreen canvases for resizing
+    const gameStreamCanvas = document.createElement('canvas');
+    const gameStreamCtx = gameStreamCanvas.getContext('2d', { alpha: false });
+    const cameraStreamCanvas = document.createElement('canvas');
+    const cameraStreamCtx = cameraStreamCanvas.getContext('2d', { alpha: false });
 
-    function streamGameScreen() {
-        const now = Date.now();
-        if (now - lastStreamTime < STREAM_INTERVAL) return;
-        lastStreamTime = now;
+    const gameBusy = { value: false };
+    const cameraBusy = { value: false };
 
-        if (renderer && renderer.domElement) {
-            renderer.domElement.toBlob((blob) => {
-                if (blob) {
-                    fetch('/api/stream/ptak', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/octet-stream' },
-                        body: blob
-                    }).catch(e => {}); // Ignore errors
-                }
-            }, 'image/jpeg', 0.6); // 60% quality is enough for preview
+    function sendFrame(sourceCanvas, targetCanvas, ctx, url, isBusyRef) {
+        if (isBusyRef.value) return;
+        isBusyRef.value = true;
+
+        // Safety timeout in case everything hangs
+        const safetyReset = setTimeout(() => {
+            if (isBusyRef.value) {
+                isBusyRef.value = false;
+            }
+        }, 3000);
+
+        if (!sourceCanvas || sourceCanvas.width === 0 || sourceCanvas.height === 0) {
+            clearTimeout(safetyReset);
+            isBusyRef.value = false;
+            return;
         }
-        
-        // Stream Camera as well
-        const poseCanvas = document.getElementById('poseCanvas');
-        if (poseCanvas) {
-             poseCanvas.toBlob((blob) => {
+
+        // Resize logic
+        const aspect = sourceCanvas.height / sourceCanvas.width;
+        // Only resize if source is larger than target
+        if (sourceCanvas.width > STREAM_TARGET_WIDTH) {
+            targetCanvas.width = STREAM_TARGET_WIDTH;
+            targetCanvas.height = STREAM_TARGET_WIDTH * aspect;
+            ctx.drawImage(sourceCanvas, 0, 0, targetCanvas.width, targetCanvas.height);
+             
+            targetCanvas.toBlob((blob) => {
                 if (blob) {
-                    fetch('/api/stream/ptak/camera', {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 1000); // 1s timeout for upload
+
+                    fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/octet-stream' },
-                        body: blob
-                    }).catch(e => {});
+                        body: blob,
+                        signal: controller.signal
+                    })
+                    .then(() => { 
+                        clearTimeout(timeoutId);
+                        clearTimeout(safetyReset);
+                        isBusyRef.value = false; 
+                    })
+                    .catch(e => { 
+                        clearTimeout(timeoutId);
+                        clearTimeout(safetyReset);
+                        isBusyRef.value = false; 
+                    });
+                } else {
+                    clearTimeout(safetyReset);
+                    isBusyRef.value = false;
                 }
-            }, 'image/jpeg', 0.6);
+            }, 'image/jpeg', 0.5);
+        } else {
+            // If already small, send directly
+             sourceCanvas.toBlob((blob) => {
+                if (blob) {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 1000); // 1s timeout
+
+                    fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/octet-stream' },
+                        body: blob,
+                        signal: controller.signal
+                    })
+                    .then(() => { 
+                        clearTimeout(timeoutId);
+                        clearTimeout(safetyReset);
+                        isBusyRef.value = false; 
+                    })
+                    .catch(e => { 
+                        clearTimeout(timeoutId);
+                        clearTimeout(safetyReset);
+                        isBusyRef.value = false; 
+                    });
+                } else {
+                    clearTimeout(safetyReset);
+                    isBusyRef.value = false;
+                }
+            }, 'image/jpeg', 0.5);
         }
     }
 
-    // Hook into animate loop or set interval
-    setInterval(streamGameScreen, STREAM_INTERVAL);
+    function streamGameLoop() {
+        if (renderer && renderer.domElement) {
+            sendFrame(renderer.domElement, gameStreamCanvas, gameStreamCtx, '/api/stream/ptak', gameBusy);
+        }
+        setTimeout(streamGameLoop, 60); // Cap at ~15 FPS
+    }
+
+    function streamCameraLoop() {
+        const poseCanvas = document.getElementById('poseCanvas');
+        if (poseCanvas) {
+             sendFrame(poseCanvas, cameraStreamCanvas, cameraStreamCtx, '/api/stream/ptak/camera', cameraBusy);
+        }
+        setTimeout(streamCameraLoop, 60); // Cap at ~15 FPS
+    }
+
+    // Start loops with a slight delay
+    setTimeout(() => {
+        streamGameLoop();
+        streamCameraLoop();
+    }, 2000);
 
     // ==========================================
     // STATE BROADCASTING (For Dashboard)
