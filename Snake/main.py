@@ -10,8 +10,8 @@ import time
 import io
 
 # Config
-WINDOW_W = 1600
-WINDOW_H = 900
+WINDOW_W = 1920
+WINDOW_H = 1080
 INITIAL_FPS = 30 
 SERVER_URL = "https://localhost:5001"
 
@@ -34,8 +34,8 @@ def main():
     LEFT_PANEL_W = int(WINDOW_W * LEFT_PANEL_RATIO)
     RIGHT_PANEL_W = WINDOW_W - LEFT_PANEL_W
     
-    # Grid for 6 games: 2 columns, 3 rows
-    COLS = 3
+    # Grid for 4 games: 2 columns, 2 rows
+    COLS = 2
     ROWS = 2
     # Logic size for the game (fixed coordinate system)
     LOGIC_GAME_W = 17 
@@ -68,6 +68,7 @@ def main():
     
     # Game Control State
     paused = False
+    no_cooldown = False
     show_help = False
 
     # Define focused_activations outside loop to avoid UnboundLocalError
@@ -80,6 +81,7 @@ def main():
         if settings:
             fps = settings.get('fps', fps)
             paused = settings.get('paused', paused)
+            no_cooldown = settings.get('no_cooldown', no_cooldown)
         
         # Network Sync (Receive Commands)
         commands = network.get_commands()
@@ -220,7 +222,10 @@ def main():
                         if done:
                             # Instead of immediate reset, start cooldown
                             # 1 second cooldown = fps frames
-                            game_cooldowns[i] = int(fps) 
+                            if no_cooldown:
+                                game_cooldowns[i] = 0 # Instant reset
+                            else:
+                                game_cooldowns[i] = int(fps) 
                             
                             # Trigger crash visual on the current game state
                             game.crash()
@@ -270,47 +275,39 @@ def main():
         # Draw everything
         screen.fill((0, 0, 0)) # Clear screen
         
-
-        # Draw Left Panel (Games)
-        for i, game in enumerate(games):
-            row = i // COLS
-            col = i % COLS
-            x = col * DRAW_GAME_W
-            y = row * DRAW_GAME_H
-            
-            # Highlight focused game
-            if i == focused_game_idx:
-                pygame.draw.rect(screen, (255, 255, 0), (x, y, DRAW_GAME_W, DRAW_GAME_H), 2)
-            
-            game.draw(screen, x, y, DRAW_GAME_W, DRAW_GAME_H, interpolation=alpha)
-
-        # Draw Right Panel (Visualizer)
-        visualizer.draw_dashboard(screen, agent, LEFT_PANEL_W, 0, RIGHT_PANEL_W, WINDOW_H, focused_activations, dashboard_mode, focused_game_idx, paused)
+        # Draw Games Grid
         if view_mode == 0:
             # GRID VIEW
             # Draw Left Panel (Games)
             for i, game in enumerate(games):
                 row = i // COLS
                 col = i % COLS
-                x = col * DRAW_GAME_W
-                y = row * DRAW_GAME_H
                 
-                # Highlight focused game
-                if i == focused_game_idx:
-                    # Add gap between games for visibility
-                    pygame.draw.rect(screen, (255, 255, 0), (x+2, y+2, DRAW_GAME_W-4, DRAW_GAME_H-4), 4)
+                # Calculate position based on dynamic panel width
+                # Each game takes up a portion of the LEFT_PANEL_W
+                # Width per game = LEFT_PANEL_W / COLS
+                # Height per game = WINDOW_H / ROWS
+                
+                game_w = LEFT_PANEL_W // COLS
+                game_h = WINDOW_H // ROWS
+                
+                x = col * game_w
+                y = row * game_h
                 
                 # Draw game with slight padding to separate them
-                game.draw(screen, x+5, y+5, DRAW_GAME_W-10, DRAW_GAME_H-10, interpolation=alpha)
+                is_dead = game_cooldowns[i] > 0
+                game.draw(screen, x, y, game_w, game_h, interpolation=alpha, is_dead=is_dead)
 
             # Draw Right Panel (Visualizer)
+            # visualizer.draw_dashboard needs absolute coordinates
             visualizer.draw_dashboard(screen, agent, LEFT_PANEL_W, 0, RIGHT_PANEL_W, WINDOW_H, focused_activations, dashboard_mode, focused_game_idx, paused)
             
         else:
             # FULLSCREEN FOCUS VIEW
             # Draw only the focused game using full window dimensions
             # We skip the visualizer in this mode to maximize the game view
-            games[focused_game_idx].draw(screen, 0, 0, WINDOW_W, WINDOW_H, interpolation=alpha)
+            is_dead = game_cooldowns[focused_game_idx] > 0
+            games[focused_game_idx].draw(screen, 0, 0, WINDOW_W, WINDOW_H, interpolation=alpha, is_dead=is_dead)
             
             # Optional: Overlay some minimal info
             font = pygame.font.SysFont('Arial', 24)
@@ -323,9 +320,9 @@ def main():
              try:
                  # Resize for dashboard? 
                  # Let's send full res but scaled down if too big to save bandwidth
-                 # Target width ~800
-                 target_w = 800
-                 target_h = int(WINDOW_H * (800 / WINDOW_W))
+                 # Target width ~1280 (HD) for better quality
+                 target_w = 1280
+                 target_h = int(WINDOW_H * (1280 / WINDOW_W))
                  scaled = pygame.transform.smoothscale(screen, (target_w, target_h))
                  
                  # Save to buffer

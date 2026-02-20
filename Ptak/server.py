@@ -8,11 +8,15 @@ import subprocess
 import shutil
 import uuid
 
-app = Flask(__name__, static_url_path='')
+app = Flask(__name__, static_folder=None)
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
 # Konfiguracja bazy danych
-DB_PATH = 'leaderboard.db'
-UPLOAD_FOLDER = 'uploads'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, 'leaderboard.db')
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
+JS_FOLDER = os.path.join(BASE_DIR, 'js')
+CSS_FOLDER = os.path.join(BASE_DIR, 'css')
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -67,7 +71,7 @@ class StreamRecorder:
             # FFmpeg command to read MJPEG from pipe and write MP4
             # -f image2pipe: Input format
             # -vcodec mjpeg: Input codec
-            # -r 30: Assume 30 FPS (matches client interval)
+            # -r 25: Assume 25 FPS (matches client interval)
             # -i -: Read from stdin
             # -c:v libx264: Output codec
             # -preset ultrafast: Low CPU usage
@@ -76,7 +80,7 @@ class StreamRecorder:
                 'ffmpeg', '-y', 
                 '-f', 'image2pipe', 
                 '-vcodec', 'mjpeg', 
-                '-r', '30', 
+                '-r', '25', 
                 '-i', '-', 
                 '-c:v', 'libx264', 
                 '-preset', 'ultrafast', 
@@ -153,27 +157,39 @@ def init_db():
 
 @app.route('/')
 def index():
-    return send_from_directory('.', 'ptak.html')
+    return send_from_directory(BASE_DIR, 'ptak.html')
 
 @app.route('/leaderboard')
 def board_page():
-    return send_from_directory('.', 'ptak_leaderboard.html')
+    return send_from_directory(BASE_DIR, 'ptak_leaderboard.html')
 
 @app.route('/leaderboard1')
 def board1_page():
-    return send_from_directory('.', 'leaderboard1.html')
+    return send_from_directory(BASE_DIR, 'leaderboard1.html')
 
 @app.route('/leaderboard2')
 def board2_page():
-    return send_from_directory('.', 'leaderboard2.html')
+    return send_from_directory(BASE_DIR, 'leaderboard2.html')
 
 @app.route('/dashboard')
 def dashboard_page():
-    return send_from_directory('.', 'dashboard.html')
+    return send_from_directory(BASE_DIR, 'dashboard.html')
 
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
+
+@app.route('/static/js/<path:filename>')
+def serve_js(filename):
+    return send_from_directory(JS_FOLDER, filename)
+
+@app.route('/static/css/<path:filename>')
+def serve_css(filename):
+    return send_from_directory(CSS_FOLDER, filename)
+
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204
 
 # --- API dla Snake ---
 
@@ -364,15 +380,38 @@ def get_scores():
         limit = request.args.get('limit', 100, type=int)
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute('SELECT name, score, id FROM scores WHERE score > 0 AND name != "-" AND name != "" ORDER BY score DESC LIMIT ?', (limit,))
+        c.execute('SELECT name, score, id FROM scores ORDER BY score DESC LIMIT ?', (limit,))
         rows = c.fetchall()
         conn.close()
         
         # Formatowanie danych do JSON
-        data = [{'name': row[0], 'score': row[1], 'id': row[2]} for row in rows]
+        data = [{'name': row[0], 'score': row[1], 'id': row[2], 'video_path': row[3]} for row in rows]
         return jsonify(data)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/history', methods=['GET'])
+def get_history():
+    try:
+        limit = request.args.get('limit', 50, type=int)
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        # Get latest games
+        c.execute('SELECT name, score, id, video_path, date FROM scores ORDER BY date DESC LIMIT ?', (limit,))
+        rows = c.fetchall()
+        conn.close()
+        
+        data = [{
+            'name': row[0], 
+            'score': row[1], 
+            'id': row[2], 
+            'video_path': row[3],
+            'date': row[4]
+        } for row in rows]
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/latest_game', methods=['GET'])
 def get_latest_game():

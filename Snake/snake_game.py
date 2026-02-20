@@ -26,30 +26,6 @@ BG_GREEN_DARK = (162, 209, 73)  # Google Dark Green
 
 SPEED = 40
 
-class Particle:
-    def __init__(self, x, y, color):
-        self.x = x
-        self.y = y
-        self.color = color
-        self.vx = random.uniform(-2, 2)
-        self.vy = random.uniform(-2, 2)
-        self.life = 1.0 # 1.0 to 0.0
-        self.decay = random.uniform(0.02, 0.05)
-        self.size = random.uniform(2, 5)
-
-    def update(self):
-        self.x += self.vx
-        self.y += self.vy
-        self.life -= self.decay
-        self.size *= 0.95
-
-    def draw(self, surface, x_offset, y_offset, scale):
-        if self.life > 0:
-            alpha = int(self.life * 255)
-            s = pygame.Surface((int(self.size * scale * 2), int(self.size * scale * 2)), pygame.SRCALPHA)
-            pygame.draw.circle(s, (*self.color, alpha), (int(self.size * scale), int(self.size * scale)), int(self.size * scale))
-            surface.blit(s, (x_offset + self.x * scale - self.size * scale, y_offset + self.y * scale - self.size * scale))
-
 class SnakeGameAI:
 
     def __init__(self, w=17, h=17):
@@ -57,7 +33,6 @@ class SnakeGameAI:
         self.h = h
         # init display
         self.display = None # Managed externally if needed, or we just draw to a surface
-        self.particles = []
         self.reset()
         self.BLOCK_SIZE = 1 # Logic block size is 1 unit
 
@@ -83,7 +58,6 @@ class SnakeGameAI:
         self.food = None
         self._place_food()
         self.frame_iteration = 0
-        self.particles = [] # Clear particles on reset
         
     def crash(self):
         """Triggers the visual crash effect without resetting the game state fully"""
@@ -121,9 +95,7 @@ class SnakeGameAI:
         if self.head == self.food:
             self.score += 1
             reward = 10
-            # Add particles (visual only, position doesn't matter for logic here, handled in draw)
-            for _ in range(10):
-                self.particles.append(Particle(self.head.x + 0.5, self.head.y + 0.5, RED))
+            # Removed particles
             self._place_food()
         else:
             self.snake.pop()
@@ -186,12 +158,11 @@ class SnakeGameAI:
 
         self.head = Point(int(x), int(y))
 
-    def draw(self, surface, x_offset, y_offset, width, height, interpolation=0.0):
-        # Update particles first (logic in draw is weird but keeps it simple for visual only)
-        for p in self.particles:
-            p.update()
-        self.particles = [p for p in self.particles if p.life > 0]
-        
+    def draw(self, surface, x_offset, y_offset, width, height, interpolation=0.0, is_dead=False):
+        # If dead (crashed), freeze animation at the final state
+        if is_dead:
+            interpolation = 1.0
+
         # Decrement death timer but clamp it so it doesn't go below 0
         # However, if we are "paused" in crash state, we might want to manually control this or just let it run.
         # If main loop pauses logic updates, draw is still called.
@@ -200,8 +171,13 @@ class SnakeGameAI:
 
         # Calculate block size based on drawing area
         # We want to fit w*h grid into width*height area
-        block_w = width / self.w
-        block_h = height / self.h
+        # Reserve some space for border padding
+        padding = 5
+        avail_w = width - padding * 2
+        avail_h = height - padding * 2
+        
+        block_w = avail_w / self.w
+        block_h = avail_h / self.h
         
         # Use smaller dimension to keep aspect ratio square
         block_size = min(block_w, block_h)
@@ -212,10 +188,26 @@ class SnakeGameAI:
         start_x = x_offset + (width - board_w) / 2
         start_y = y_offset + (height - board_h) / 2
         
+        # Define the playable area rect
+        play_area_rect = pygame.Rect(start_x, start_y, board_w, board_h)
+
+        # Draw Border/Background Container
+        border_thickness = 16 # Thicker border to match the reference style better
+        # Inflate based on padding we reserved
+        border_rect = play_area_rect.inflate(border_thickness*2, border_thickness*2)
+        
+        BORDER_COLOR = (87, 138, 52) # Dark Green Google Snake Border
+        pygame.draw.rect(surface, BORDER_COLOR, border_rect, border_radius=5) 
+        
+        # We don't need the second line for the Google Snake look, just one solid border frame
+
+        # Set clipping to ensure snake doesn't draw outside the board
+        original_clip = surface.get_clip()
+        surface.set_clip(play_area_rect)
+
         # Draw Background (Checkered)
         # Fill the background area first (optional, for safety)
-        full_rect = pygame.Rect(start_x, start_y, board_w, board_h)
-        pygame.draw.rect(surface, BG_GREEN_DARK, full_rect) # Default dark green
+        pygame.draw.rect(surface, BG_GREEN_DARK, play_area_rect) # Default dark green
 
         for r in range(self.h):
             for c in range(self.w):
@@ -232,37 +224,41 @@ class SnakeGameAI:
         snake_points = []
         
         # 1. Calculate Visual Head
-        if len(self.snake) > 1:
-            prev_head = self.snake[1]
+        if len(self.snake) > 0 and len(self.prev_snake) > 0:
+            prev_head = self.prev_snake[0]
             curr_head = self.snake[0]
             
-            # Lerp
-            vh_x = prev_head.x + (curr_head.x - prev_head.x) * interpolation
-            vh_y = prev_head.y + (curr_head.y - prev_head.y) * interpolation
+            # Clamp to prevent visual glitches at boundaries
+            clamped_curr_x = max(0, min(self.w - 1, curr_head.x))
+            clamped_curr_y = max(0, min(self.h - 1, curr_head.y))
             
+            vh_x = prev_head.x + (clamped_curr_x - prev_head.x) * interpolation
+            vh_y = prev_head.y + (clamped_curr_y - prev_head.y) * interpolation
             visual_head = (vh_x, vh_y)
         else:
             visual_head = (self.snake[0].x, self.snake[0].y)
             
         snake_points.append(visual_head)
-        
-        # 2. Add Static Body Points
+
+        # 2. Add Static Body Points (From prev_snake)
+        # If growing: Tail stays put, so we draw all of prev_snake.
+        # If not growing: Tail moves, so we exclude the last segment of prev_snake (it's being interpolated).
         is_growing = len(self.snake) > len(self.prev_snake)
-        for pt in self.snake[1:-1]:
-             snake_points.append((pt.x, pt.y))
-             
+        
+        body_slice = self.prev_snake if is_growing else self.prev_snake[:-1]
+        
+        for pt in body_slice:
+            snake_points.append((pt.x, pt.y))
+
         # 3. Calculate Visual Tail
-        if is_growing:
-            snake_points.append((self.snake[-1].x, self.snake[-1].y))
-        else:
-            if len(self.prev_snake) > 0:
-                prev_tail = self.prev_snake[-1]
-                curr_tail = self.snake[-1]
-                vt_x = prev_tail.x + (curr_tail.x - prev_tail.x) * interpolation
-                vt_y = prev_tail.y + (curr_tail.y - prev_tail.y) * interpolation
-                snake_points.append((vt_x, vt_y))
-            else:
-                 snake_points.append((self.snake[-1].x, self.snake[-1].y))
+        if not is_growing and len(self.prev_snake) > 1:
+            # Tail moves from prev_tail to prev_snake[-2]
+            prev_tail = self.prev_snake[-1]
+            target_tail = self.prev_snake[-2]
+            
+            vt_x = prev_tail.x + (target_tail.x - prev_tail.x) * interpolation
+            vt_y = prev_tail.y + (target_tail.y - prev_tail.y) * interpolation
+            snake_points.append((vt_x, vt_y))
 
         # Convert to Screen Coordinates
         screen_points = []
@@ -271,20 +267,47 @@ class SnakeGameAI:
             sy = start_y + pt[1] * block_size + block_size / 2
             screen_points.append((sx, sy))
             
-        # Draw the Path
+        # Draw the Path (Rounded "Sausage" Style)
         snake_color = BLUE1 
-        body_width = int(block_size * 0.9) 
+        # Ensure body width is even for perfect circle alignment
+        body_width = int(block_size * 0.9)
+        if body_width % 2 != 0:
+            body_width -= 1
         
+        # Use a slightly smaller radius for joints to prevent bulging
+        # But head and tail need full radius to look round
+        radius = body_width // 2
+        joint_radius = radius - 1 if radius > 2 else radius
+
         if len(screen_points) >= 2:
-            for i in range(len(screen_points) - 1):
-                p1 = screen_points[i]
-                p2 = screen_points[i+1]
-                pygame.draw.line(surface, snake_color, p1, p2, body_width)
-                pygame.draw.circle(surface, snake_color, p1, body_width // 2)
-            pygame.draw.circle(surface, snake_color, screen_points[-1], body_width // 2)
+            # Draw the main body as a continuous polyline
+            # This is faster and cleaner for straight sections
+            pygame.draw.lines(surface, snake_color, False, screen_points, body_width)
+            
+            # Draw Head Cap (Full radius)
+            pygame.draw.circle(surface, snake_color, screen_points[0], radius)
+            # Draw Tail Cap (Full radius)
+            pygame.draw.circle(surface, snake_color, screen_points[-1], radius)
+            
+            # Draw circles ONLY at TURNS to round them off
+            for i in range(1, len(screen_points) - 1):
+                prev = screen_points[i-1]
+                curr = screen_points[i]
+                next_pt = screen_points[i+1]
+                
+                # Check for turn using cross product
+                v1x, v1y = curr[0] - prev[0], curr[1] - prev[1]
+                v2x, v2y = next_pt[0] - curr[0], next_pt[1] - curr[1]
+                
+                cross_product = v1x * v2y - v1y * v2x
+                
+                if abs(cross_product) > 0.1:
+                    # Draw circle at joint
+                    # Using joint_radius to avoid "bulging" on the sides of the line
+                    pygame.draw.circle(surface, snake_color, curr, joint_radius)
         else:
             for p in screen_points:
-                 pygame.draw.circle(surface, snake_color, p, body_width // 2)
+                 pygame.draw.circle(surface, snake_color, p, radius)
 
         # 3. Draw Eyes on Head
         if len(screen_points) > 1:
@@ -339,18 +362,6 @@ class SnakeGameAI:
         leaf_rect = pygame.Rect(center_x - 2, center_y - apple_size/2 - 4, 4, 6) # Simplified leaf
         pygame.draw.ellipse(surface, (50, 200, 50), leaf_rect)
 
-        # Draw Particles
-        for p in self.particles:
-            screen_px = start_x + p.x * block_size
-            screen_py = start_y + p.y * block_size
-            
-            if p.life > 0:
-                alpha = int(p.life * 255)
-                # Smaller particles relative to block
-                s = pygame.Surface((int(p.size * block_size * 0.2), int(p.size * block_size * 0.2)), pygame.SRCALPHA) 
-                pygame.draw.circle(s, (*p.color, alpha), (int(p.size * block_size * 0.1), int(p.size * block_size * 0.1)), int(p.size * block_size * 0.05))
-                surface.blit(s, (screen_px, screen_py))
-
         # Death Overlay
         if hasattr(self, 'death_timer') and self.death_timer > 0:
             overlay = pygame.Surface((width, height), pygame.SRCALPHA)
@@ -362,3 +373,9 @@ class SnakeGameAI:
             text = font.render(f"!", True, (255, 255, 255))
             text_rect = text.get_rect(center=(x_offset + width/2, y_offset + height/2))
             surface.blit(text, text_rect)
+            
+        # Restore original clip (VERY IMPORTANT)
+        if original_clip:
+            surface.set_clip(original_clip)
+        else:
+            surface.set_clip(None)

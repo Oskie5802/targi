@@ -24,25 +24,25 @@
     <meta property="twitter:description" content="flap your arms to fly">
     <meta property="twitter:image" content="https://funwithcomputervision.com/assets/wingman.png">
 
-    <script defer src="https://cloud.umami.is/script.js" data-website-id="376d8af4-cd09-461a-9ca9-f5eeed83e857"></script>
+    <script defer src="/static/js/umami.js" data-website-id="376d8af4-cd09-461a-9ca9-f5eeed83e857"></script>
   
   <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/tailwindcss.js"></script>
   
   <!-- Google Fonts: Pixel Art Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link href="/static/css/fonts.css" rel="stylesheet">
   
   <!-- Three.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="/static/js/three.min.js"></script>
   
   <!-- MediaPipe Dependencies -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+  <script src="/static/js/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="/static/js/control_utils.js" crossorigin="anonymous"></script>
+  <script src="/static/js/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="/static/js/pose.js" crossorigin="anonymous"></script>
   
   <!-- Tone.js for Audio -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <script src="/static/js/Tone.js"></script>
   
   <style>
     * {
@@ -542,17 +542,19 @@
       right: 10px;
       background-color: rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(12px);
-      padding: 1rem;
+      padding: 0.5rem;
       border: 4px solid rgb(193, 193, 255);
       color: white;
       text-align: center;
       z-index: 25;
-      min-width: 200px;
+      min-width: 150px;
       pointer-events: auto;
+      transform: scale(0.8);
+      transform-origin: top right;
     }
 
     .leaderboard-container h3 {
-      font-size: 1rem;
+      font-size: 0.9rem;
       margin-bottom: 0.5rem;
       color: #ffd500;
       text-shadow: 2px 2px 0px #000;
@@ -561,7 +563,7 @@
     .leaderboard-list {
       list-style: none;
       padding: 0;
-      font-size: 0.8rem;
+      font-size: 0.7rem;
     }
 
     .leaderboard-item {
@@ -715,10 +717,7 @@
             
             <!-- Ready to Restart State -->
             <div id="readyToRestartState" class="hidden" style="display: flex; flex-direction: column; align-items: center; gap: 1.5rem;">
-              <h2 class="font-retro" style="font-size: 2rem; color: #facc15; text-align: center; animation: pulse 1s infinite;">
-                MACHAJ RĘKAMI ABY ROZPOCZĄĆ
-              </h2>
-              <button id="restartButton" class="restart-button font-retro hidden">
+              <button id="restartButton" class="restart-button font-retro">
                 SPRÓBUJ PONOWNIE
               </button>
             </div>
@@ -758,7 +757,7 @@
     // SCREEN STREAMING (For Dashboard Live Preview)
     // ==========================================
     let lastStreamTime = 0;
-    const STREAM_INTERVAL = 33; // ~30 FPS
+    const STREAM_INTERVAL = 40; // ~25 FPS
 
     function streamGameScreen() {
         const now = Date.now();
@@ -768,13 +767,16 @@
         if (renderer && renderer.domElement) {
             renderer.domElement.toBlob((blob) => {
                 if (blob) {
-                    fetch('/api/stream/ptak', {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 800); // 800ms timeout for upload
+
+                    fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/octet-stream' },
                         body: blob
                     }).catch(e => {}); // Ignore errors
                 }
-            }, 'image/jpeg', 0.85); // Increased quality
+            }, 'image/jpeg', 0.6); // 60% quality is enough for preview
         }
         
         // Stream Camera as well
@@ -782,18 +784,53 @@
         if (poseCanvas) {
              poseCanvas.toBlob((blob) => {
                 if (blob) {
-                    fetch('/api/stream/ptak/camera', {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 800);
+
+                    fetch(url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/octet-stream' },
-                        body: blob
-                    }).catch(e => {});
+                        body: blob,
+                        signal: controller.signal
+                    })
+                    .then(() => { 
+                        clearTimeout(timeoutId);
+                        clearTimeout(safetyReset);
+                        isBusyRef.value = false; 
+                    })
+                    .catch(e => { 
+                        clearTimeout(timeoutId);
+                        clearTimeout(safetyReset);
+                        isBusyRef.value = false; 
+                    });
+                } else {
+                    clearTimeout(safetyReset);
+                    isBusyRef.value = false;
                 }
-            }, 'image/jpeg', 0.85);
+            }, 'image/jpeg', 0.6);
         }
     }
 
-    // Hook into animate loop or set interval
-    setInterval(streamGameScreen, STREAM_INTERVAL);
+    function streamGameLoop() {
+        if (renderer && renderer.domElement) {
+            sendFrame(renderer.domElement, gameStreamCanvas, gameStreamCtx, '/api/stream/ptak', gameBusy);
+        }
+        setTimeout(streamGameLoop, 16); // Cap at ~60 FPS
+    }
+
+    function streamCameraLoop() {
+        const poseCanvas = document.getElementById('poseCanvas');
+        if (poseCanvas) {
+             sendFrame(poseCanvas, cameraStreamCanvas, cameraStreamCtx, '/api/stream/ptak/camera', cameraBusy);
+        }
+        setTimeout(streamCameraLoop, 16); // Cap at ~60 FPS
+    }
+
+    // Start loops with a slight delay
+    setTimeout(() => {
+        streamGameLoop();
+        streamCameraLoop();
+    }, 2000);
 
     // ==========================================
     // STATE BROADCASTING (For Dashboard)
@@ -873,90 +910,106 @@
       });
     }
 
+    // ==========================================
+    // SCORE SUBMISSION HELPER
+    // ==========================================
+    async function submitGameScore(playerName) {
+        const finalName = playerName || "ANON";
+        console.log(`Submitting score for ${finalName}: ${score}`);
+        
+        try {
+            // Ensure we have the filename
+            const recFilename = await getRecordingFilename();
+            
+            const response = await fetch('/api/scores', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    name: finalName, 
+                    score: score, 
+                    link_recording: true,
+                    recording_filename: recFilename
+                })
+            });
+            
+            if (response.ok) {
+                console.log("Score saved successfully");
+                loadLeaderboard();
+            } else {
+                console.error("Server returned error saving score");
+            }
+        } catch (e) {
+            console.error("Failed to save score:", e);
+            // Local fallback
+            leaderboard.push({ name: finalName, score: score });
+            try {
+                localStorage.setItem('wingman_leaderboard_fallback', JSON.stringify(leaderboard));
+            } catch(localErr) {}
+            updateLeaderboardDisplay();
+        }
+    }
+
+    function setupRestartTimer() {
+        canRestart = false;
+        document.getElementById('rechargingState').style.display = 'flex';
+        
+        // Wait for cooldown before allowing restart
+        setTimeout(() => {
+            canRestart = true;
+            // Ensure logic in handleFlap passes check (simulated old game over time)
+            gameOverTime = Date.now() - 2500; 
+            updateGameOverUI();
+        }, 2000);
+    }
+
     async function handleNameSubmit() {
       const input = document.getElementById('playerNameInput');
       const name = input.value.trim().toUpperCase();
       const submitBtn = document.getElementById('submitNameButton');
       
-      // If no name entered, do not save, just reset
-      if (!name) {
-          waitingForName = false;
-          setGameState(GameState.START);
-          return;
-      }
-      
-      // Stop inactivity timer since user submitted
+      // Stop inactivity timer
       if (inactivityTimer) clearTimeout(inactivityTimer);
 
-      // Disable button to prevent double submit
+      // Disable button
       submitBtn.disabled = true;
       submitBtn.innerText = "...";
 
-      try {
-        const response = await fetch('/api/scores', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-                name: name, 
-                score: score, 
-                link_recording: true,
-                recording_filename: currentRecordingFilename
-            })
-        });
-        
-        if (!response.ok) throw new Error('Server error');
-        
-        const result = await response.json();
-        
-        // Reload leaderboard to show new score
-        await loadLeaderboard();
-        
-      } catch (e) {
-        console.error("Failed to save score to server", e);
-        // Fallback save locally
-        leaderboard.push({ name, score });
-        try {
-            localStorage.setItem('wingman_leaderboard_fallback', JSON.stringify(leaderboard));
-        } catch(localErr) {}
-        updateLeaderboardDisplay();
-      }
+      // Always save, even if name is empty (defaults to ANON in submitGameScore)
+      await submitGameScore(name);
       
       waitingForName = false;
-      input.value = ''; // Reset input
+      input.value = ''; 
       submitBtn.disabled = false;
       submitBtn.innerText = "ZAPISZ (ENTER)";
       
       updateGameOverUI();
-      
-      // Start restart timer
-      canRestart = false;
-      document.getElementById('rechargingState').style.display = 'flex';
-      
-      // Wait for cooldown before allowing restart
-      setTimeout(() => {
-        canRestart = true;
-        gameOverTime = Date.now() - 2500; // Ensure logic in handleFlap passes
-        updateGameOverUI();
-      }, 2000);
+      setupRestartTimer();
     }
 
     // ==========================================
     // MEDIA RECORDING (Server-Side)
     // ==========================================
     let currentRecordingFilename = null;
+    let recordingStartPromise = null;
 
     async function startRecording() {
       try {
-        const response = await fetch('/api/recording/start', { method: 'POST' });
-        const data = await response.json();
-        if (data.status === 'started') {
-            currentRecordingFilename = data.filename;
-            console.log("Server recording started:", currentRecordingFilename);
-        }
+        recordingStartPromise = fetch('/api/recording/start', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'started') {
+                    currentRecordingFilename = data.filename;
+                    console.log("Server recording started:", currentRecordingFilename);
+                    return data.filename;
+                }
+                return null;
+            })
+            .catch(e => {
+                console.error("Failed to start server recording", e);
+                return null;
+            });
       } catch (e) {
-        console.error("Failed to start server recording", e);
+        console.error("Failed to initiate recording start", e);
       }
     }
 
@@ -967,6 +1020,14 @@
       } catch (e) {
         console.error("Failed to stop server recording", e);
       }
+    }
+    
+    async function getRecordingFilename() {
+        if (currentRecordingFilename) return currentRecordingFilename;
+        if (recordingStartPromise) {
+            return await recordingStartPromise;
+        }
+        return null;
     }
 
     // Legacy client-side recording removed/disabled
@@ -1127,7 +1188,7 @@
 
       poseInstance = new window.Pose({
         locateFile: (file) => {
-          return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+          return `/static/js/mediapipe/${file}`;
         }
       });
 
@@ -1659,7 +1720,8 @@
         if (score === 0) {
             // Auto-save zero score without asking for name
             waitingForName = false;
-            handleZeroScoreSubmit();
+            submitGameScore("-");
+            setupRestartTimer();
         } else {
             // Ask for name if score > 0
             waitingForName = true;
@@ -1671,26 +1733,26 @@
       }
     }
     
-    async function submitScoreInternal(nameVal, scoreVal) {
+    async function handleZeroScoreSubmit() {
+        // Automatically submit score 0 with hidden name
         try {
-            await fetch('/api/scores', {
+            const response = await fetch('/api/scores', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    name: nameVal, 
-                    score: scoreVal, 
+                    name: "-", 
+                    score: 0, 
                     link_recording: true,
                     recording_filename: currentRecordingFilename
                 })
             });
+            
+            if (response.ok) {
+                // Success
+            }
         } catch (e) {
-            console.error("Score submission failed", e);
+            console.error("Zero score auto-save failed", e);
         }
-    }
-
-    async function handleZeroScoreSubmit() {
-        // Automatically submit score 0 with hidden name
-        await submitScoreInternal("-", 0);
         
         // Start restart timer logic
         waitingForName = false;
@@ -1706,14 +1768,12 @@
 
     function startInactivityTimer() {
         if (inactivityTimer) clearTimeout(inactivityTimer);
-        inactivityTimer = setTimeout(async () => {
-            // Timeout - save as "-" and reset
-            console.log("Inactivity timeout - auto saving and resetting");
+        inactivityTimer = setTimeout(() => {
+            // Timeout - skip saving and reset
+            console.log("Inactivity timeout - resetting");
             waitingForName = false;
             
-            // Save current score as hidden entry
-            await submitScoreInternal("-", score);
-            
+            // Clean up recording if needed (not saving)
             // Reset to ready state
             setGameState(GameState.START);
         }, INACTIVITY_TIMEOUT);

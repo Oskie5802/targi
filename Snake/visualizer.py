@@ -22,9 +22,9 @@ class Visualizer:
     def __init__(self, width, height):
         self.w = width
         self.h = height
-        self.font = pygame.font.SysFont('Arial', 14)
-        self.title_font = pygame.font.SysFont('Arial', 20, bold=True)
-        self.small_font = pygame.font.SysFont('Arial', 10)
+        self.font = pygame.font.SysFont('Arial', 18) # Increased from 14
+        self.title_font = pygame.font.SysFont('Arial', 24, bold=True) # Increased from 20
+        self.small_font = pygame.font.SysFont('Arial', 14) # Increased from 10
         self.buttons = {} # key: (rect, action_string)
 
     def handle_click(self, pos):
@@ -66,8 +66,8 @@ class Visualizer:
         # Header Section
         self._draw_stats(surface, agent, x + 20, y + 20)
         
-        # UI Controls (Tabs & Buttons)
-        self._draw_controls(surface, x + 20, y + 140, w - 40, mode, focused_game_idx, paused)
+        # UI Controls (Only Save/Help/Status now)
+        self._draw_controls(surface, x + 20, y + 140, w - 40, paused)
 
         # Help Overlay (if active)
         if show_help:
@@ -75,30 +75,12 @@ class Visualizer:
             return # Skip drawing content if help is open
 
         # Content Area Start Y
-        content_y = y + 230
-        available_h = h - content_y - 10 # 10 px padding bottom
-
-        # Mode 0: Default (NN + Graphs)
-        if mode == 0:
-            # 2. Neural Network Visualization
-            # Use dynamic height, max 280, min 150
-            nn_height = min(280, max(150, int(available_h * 0.45)))
-            
-            nn_rect = pygame.Rect(x + 10, content_y, w - 20, nn_height)
-            self._draw_neural_net(surface, focused_activations, nn_rect, focused_game_idx)
-
-            # 3. Graphs (Score & Loss)
-            graph_y_start = content_y + nn_height + 10
-            graph_height = h - graph_y_start - 10
-            
-            if graph_height > 50: # Only draw if there is space
-                graph_rect = pygame.Rect(x + 10, graph_y_start, w - 20, graph_height)
-                self._draw_graphs(surface, agent, graph_rect)
+        content_y = y + 200
         
-        # Mode 1: Analytics (Full Graphs)
-        elif mode == 1:
-             graph_rect = pygame.Rect(x + 10, content_y, w - 20, h - content_y - 20)
-             self._draw_graphs(surface, agent, graph_rect)
+        # Always draw Graphs (No Focus Mode)
+        # We assume w and h are enough
+        graph_rect = pygame.Rect(x + 10, content_y, w - 20, h - content_y - 20)
+        self._draw_graphs(surface, agent, graph_rect)
 
     def _draw_stats(self, surface, agent, x, y):
         # Title
@@ -120,79 +102,24 @@ class Visualizer:
             text = self.font.render(stat, True, WHITE)
             surface.blit(text, (x + col * 200, y + 35 + row * 25))
 
-    def _draw_controls(self, surface, x, y, w, current_mode, focused_game_idx, paused):
-        # Layout: Two Rows
-        # Row 1: Mode Tabs (Left) | Speed (Right)
-        # Row 2: Focus Buttons (Left, if Mode 0) | Play/Pause, Save, Help (Right)
+    def _draw_controls(self, surface, x, y, w, paused):
+        # Simply show status
         
         row1_y = y
-        row2_y = y + 45
-        
-        mouse_pos = pygame.mouse.get_pos()
+        # mouse_pos = pygame.mouse.get_pos()
 
-        # --- ROW 1 ---
-        
-        # 1. Mode Tabs (Left)
-        tab_w = 120
-        tab_h = 35
-        modes = ["Focus View", "Analytics"]
-        for i, label in enumerate(modes):
-            bx = x + i * (tab_w + 10)
-            rect = pygame.Rect(bx, row1_y, tab_w, tab_h)
-            is_active = (i == current_mode)
-            is_hover = rect.collidepoint(mouse_pos)
-            self._draw_button(surface, rect, label, f"SET_MODE_{i}", is_active, is_hover)
-
-        # 3. Speed Controls (Right aligned in Row 1)
-        spd_x = x + w - 110
-        
-        # Speed Label
-        lbl = self.small_font.render("Speed", True, GRAY)
-        surface.blit(lbl, (spd_x - 40, row1_y + 10))
-
-        # Down
-        down_rect = pygame.Rect(spd_x, row1_y, 40, 35)
-        self._draw_button(surface, down_rect, "-", "SPEED_DOWN", False, down_rect.collidepoint(mouse_pos))
-        
-        # Up
-        up_rect = pygame.Rect(spd_x + 45, row1_y, 40, 35)
-        self._draw_button(surface, up_rect, "+", "SPEED_UP", False, up_rect.collidepoint(mouse_pos))
-        
-        # --- ROW 2 ---
-
-        # 2. Focus Selectors (Left aligned in Row 2) - Only show in Mode 0
-        if current_mode == 0:
-            lbl = self.small_font.render("Focus:", True, GRAY)
-            surface.blit(lbl, (x, row2_y + 10))
-            
-            for i in range(6):
-                size = 35
-                bx = x + 40 + i * (size + 5)
-                rect = pygame.Rect(bx, row2_y, size, size)
-                is_focused = (i == focused_game_idx)
-                
-                # Custom colors for focus buttons
-                color = (255, 215, 0) if is_focused else BTN_NORMAL
-                text_col = BLACK if is_focused else WHITE
-                
-                self._draw_button(surface, rect, str(i+1), f"FOCUS_{i}", is_focused, rect.collidepoint(mouse_pos), base_color=BTN_NORMAL, active_color=(255, 215, 0), text_color=text_col)
-
-        # 4. Play/Pause, Save, Help (Right aligned in Row 2)
-        # Right to Left: Help, Save, Pause
-        
-        # Help Button
-        help_rect = pygame.Rect(x + w - 50, row2_y, 50, 35)
-        self._draw_button(surface, help_rect, "?", "TOGGLE_HELP", False, help_rect.collidepoint(mouse_pos), base_color=(100, 100, 150))
-
-        # Save Button
-        save_rect = pygame.Rect(x + w - 120, row2_y, 60, 35)
-        self._draw_button(surface, save_rect, "SAVE", "SAVE_MODEL", False, save_rect.collidepoint(mouse_pos), base_color=BLUE)
-
-        # Pause Button
-        pause_rect = pygame.Rect(x + w - 200, row2_y, 70, 35)
-        label = "RESUME" if paused else "PAUSE"
+        # Status Label
+        status_text = "PAUSED" if paused else "RUNNING"
         color = RED if paused else GREEN
-        self._draw_button(surface, pause_rect, label, "TOGGLE_PAUSE", False, pause_rect.collidepoint(mouse_pos), base_color=color)
+        lbl = self.title_font.render(status_text, True, color)
+        surface.blit(lbl, (x, row1_y))
+
+        # Removed Buttons (Save, Help) as requested
+        # help_rect = pygame.Rect(x + w - 50, row1_y, 50, 35)
+        # self._draw_button(surface, help_rect, "?", "TOGGLE_HELP", False, help_rect.collidepoint(mouse_pos), base_color=(100, 100, 150))
+
+        # save_rect = pygame.Rect(x + w - 120, row1_y, 60, 35)
+        # self._draw_button(surface, save_rect, "SAVE", "SAVE_MODEL", False, save_rect.collidepoint(mouse_pos), base_color=BLUE)
 
     def _draw_help(self, surface, x, y, w, h):
         # Draw a semi-transparent overlay
@@ -378,61 +305,93 @@ class Visualizer:
 
 
     def _draw_single_chart(self, surface, rect, data1, data2, title, color1, color2):
-        # Draw Title
-        lbl = self.font.render(title, True, color1)
-        surface.blit(lbl, (rect.x, rect.y - 20))
+        # Background
+        pygame.draw.rect(surface, (30, 34, 40), rect, border_radius=6) # Darker modern bg
+        pygame.draw.rect(surface, (60, 65, 75), rect, 1, border_radius=6) # Border
 
-        # Draw Box with gradient background (simulated)
-        pygame.draw.rect(surface, (25, 25, 30), rect)
-        pygame.draw.rect(surface, (60, 60, 70), rect, 1)
+        # Title
+        lbl = self.font.render(title, True, color1)
+        surface.blit(lbl, (rect.x + 10, rect.y + 5))
 
         if not data1 or len(data1) < 2:
             return
 
-        # Limit data to last 100 points for cleaner view
-        limit = 100
+        # Data processing
+        limit = 200 # Show more history
         d1 = data1[-limit:]
         d2 = data2[-limit:] if data2 else []
 
-        max_val = max(max(d1), max(d2) if d2 else 0)
-        if max_val == 0: max_val = 1
+        # Dynamic Scaling
+        all_vals = d1 + (d2 if d2 else [])
+        if not all_vals: return
         
-        # Helper to map value to y
-        def get_pt(i, val, data_len):
-            x = rect.x + (i / max(1, data_len - 1)) * rect.width
-            # 10% padding top and bottom
-            h = rect.height * 0.8
-            y_base = rect.bottom - rect.height * 0.1
-            y = y_base - (val / max_val) * h
+        min_val = min(all_vals)
+        max_val = max(all_vals)
+        val_range = max(1, max_val - min_val)
+        
+        # Margins
+        margin_x = 40 # Left margin for Y-axis labels
+        margin_y = 30 # Bottom margin
+        plot_w = rect.width - margin_x - 10
+        plot_h = rect.height - margin_y - 30 # Top margin for title
+        plot_x = rect.x + margin_x
+        plot_y = rect.y + 30
+
+        # Grid & Labels
+        grid_lines = 5
+        for i in range(grid_lines):
+            # Y position (from bottom up)
+            y_norm = i / (grid_lines - 1)
+            y_pos = plot_y + plot_h - y_norm * plot_h
+            
+            # Grid line
+            pygame.draw.line(surface, (45, 50, 60), (plot_x, y_pos), (plot_x + plot_w, y_pos), 1)
+            
+            # Label
+            val = min_val + y_norm * val_range
+            label_text = f"{val:.1f}" if val < 10 else f"{int(val)}"
+            lbl = self.small_font.render(label_text, True, (150, 150, 160))
+            lbl_rect = lbl.get_rect(right=plot_x - 5, centery=y_pos)
+            surface.blit(lbl, lbl_rect)
+
+        # Helper to map data point to screen coordinates
+        def get_pt(i, val, count):
+            x = plot_x + (i / max(1, count - 1)) * plot_w
+            # Normalize value to 0-1 range within min-max
+            norm_val = (val - min_val) / val_range
+            y = plot_y + plot_h - (norm_val * plot_h)
             return (x, y)
 
-        # Draw Data 1 (e.g. Raw Score)
-        points1 = [get_pt(i, v, len(d1)) for i, v in enumerate(d1)]
-        if len(points1) > 1:
-            pygame.draw.lines(surface, color1, False, points1, 2)
+        # Draw Data 1 (e.g. Raw Score) - Filled Area Style
+        if len(d1) > 1:
+            points1 = [get_pt(i, v, len(d1)) for i, v in enumerate(d1)]
             
-            # Fill under curve (simple)
-            if len(points1) > 2:
-                # Create a polygon: points1 + bottom-right + bottom-left
-                poly_points = points1 + [(points1[-1][0], rect.bottom-2), (points1[0][0], rect.bottom-2)]
-                # Create surface for transparency
-                s = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
-                # Offset points to 0,0 for surface
-                local_poly = [(p[0]-rect.x, p[1]-rect.y) for p in poly_points]
-                pygame.draw.polygon(s, (*color1, 50), local_poly)
-                surface.blit(s, (rect.x, rect.y))
+            # Create a polygon for filling
+            poly_points = points1 + [(points1[-1][0], plot_y + plot_h), (points1[0][0], plot_y + plot_h)]
+            
+            # Transparent fill
+            s = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+            fill_color = (*color1, 40) # Low opacity
+            # We need to offset polygon points because surface is blitted at rect.x, rect.y?
+            # No, if surface is same size as screen (or rect), we need local coords.
+            # Let's make surface size of rect
+            s_poly = [(p[0]-rect.x, p[1]-rect.y) for p in poly_points]
+            pygame.draw.polygon(s, fill_color, s_poly)
+            surface.blit(s, (rect.x, rect.y))
+            
+            # Line (Anti-aliased)
+            if len(points1) > 1:
+                pygame.draw.aalines(surface, color1, False, points1)
 
-        # Draw Data 2 (e.g. Mean Score)
+        # Draw Data 2 (e.g. Mean Score) - Thicker Line
         if d2 and len(d2) > 1:
             points2 = [get_pt(i, v, len(d2)) for i, v in enumerate(d2)]
-            pygame.draw.lines(surface, color2, False, points2, 3) # Thicker line
             
-            # Legend for Mean Score
-            if color2 == ORANGE:
-                leg = self.small_font.render("Mean Score", True, ORANGE)
-                surface.blit(leg, (rect.right - 60, rect.y + 5))
-
-        # Draw Grid lines (Horizontal)
-        for i in range(5):
-            y = rect.bottom - (i / 4) * rect.height
-            pygame.draw.line(surface, (40, 40, 50), (rect.x, y), (rect.right, y), 1)
+            # Manual thickness for AA line (draw multiple with offset)
+            # Or just use normal lines for thickness
+            pygame.draw.lines(surface, color2, False, points2, 3)
+            
+            # Legend
+            leg_text = "Mean (L100)"
+            leg = self.small_font.render(leg_text, True, color2)
+            surface.blit(leg, (rect.right - 80, rect.y + 5))
