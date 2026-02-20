@@ -354,11 +354,36 @@ def stop_recording():
 @app.route('/api/media', methods=['GET'])
 def list_media():
     try:
-        files = os.listdir(UPLOAD_FOLDER)
-        # Sort by modification time (newest first)
-        files.sort(key=lambda x: os.path.getmtime(os.path.join(UPLOAD_FOLDER, x)), reverse=True)
-        return jsonify(files)
+        # Get all scores with video paths
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        # Join not needed as we just want to list files that have metadata
+        c.execute('SELECT id, name, score, video_path, date FROM scores WHERE video_path IS NOT NULL ORDER BY id DESC')
+        rows = c.fetchall()
+        conn.close()
+        
+        media_list = []
+        for row in rows:
+            # row: (id, name, score, video_path, date)
+            video_path = row[3]
+            if not video_path: continue
+            
+            filename = os.path.basename(video_path)
+            
+            # Check if file actually exists
+            if os.path.exists(os.path.join(UPLOAD_FOLDER, filename)):
+                media_list.append({
+                    'id': row[0],
+                    'name': row[1],
+                    'score': row[2],
+                    'filename': filename,
+                    'date': row[4],
+                    'type': 'video' if filename.endswith(('.mp4', '.webm')) else 'image'
+                })
+        
+        return jsonify(media_list)
     except Exception as e:
+        print(f"Error listing media: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/media/<filename>', methods=['DELETE'])
@@ -512,9 +537,9 @@ if __name__ == '__main__':
     init_db()
     print("===============================================================")
     print(" SERWER GRY URUCHOMIONY (HTTPS)")
-    print(" Gra dostepna pod adresem: https://192.168.0.110:5001")
-    print(" Leaderboard dostepny pod adresem: https://192.168.0.110:5001/leaderboard")
-    print(" Dashboard dostepny pod adresem: https://192.168.0.110:5001/dashboard")
+    print(" Gra dostepna pod adresem: https://192.168.55.101:5001")
+    print(" Leaderboard dostepny pod adresem: https://192.168.55.101:5001/leaderboard")
+    print(" Dashboard dostepny pod adresem: https://192.168.55.101:5001/dashboard")
     print("===============================================================")
     # Uzywamy ssl_context='adhoc' dla HTTPS (wymaga pyopenssl)
     app.run(host='0.0.0.0', port=5001, threaded=True, ssl_context='adhoc')

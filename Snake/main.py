@@ -13,7 +13,7 @@ import io
 WINDOW_W = 1920
 WINDOW_H = 1080
 INITIAL_FPS = 30 
-SERVER_URL = "https://192.168.0.110:5001"
+SERVER_URL = "https://192.168.55.101:5001"
 
 def main():
     global WINDOW_W, WINDOW_H
@@ -314,8 +314,8 @@ def main():
             text = font.render(f"Agent {focused_game_idx+1} | Score: {games[focused_game_idx].score}", True, (255, 255, 255))
             screen.blit(text, (20, 20))
 
-        # Capture and Stream Frame (Limit to 15 FPS for CPU optimization)
-        if current_time - last_stream_time > 66: # ~15 FPS
+        # Capture and Stream Frame (Limit to 60 FPS)
+        if current_time - last_stream_time > 16: # ~60 FPS
              last_stream_time = current_time
              try:
                  # Resize for dashboard? 

@@ -8,6 +8,6 @@ echo.
 echo ========================================
 echo URUCHAMIANIE SERWERA GRY...
 echo ========================================
-start https://192.168.0.110:5001
+start https://192.168.55.101:5001
 python server.py
 pause
