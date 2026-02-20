@@ -90,9 +90,8 @@ class Visualizer:
         # Compact Stats
         stats = [
             f"Games: {agent.n_games}",
-            f"Epsilon: {agent.epsilon}",
             f"Best: {max(agent.score_history) if agent.score_history else 0}",
-            f"Mean: {agent.mean_score_history[-1] if agent.mean_score_history else 0:.2f}"
+            f"Average: {agent.average_score_history[-1] if agent.average_score_history else 0:.2f}"
         ]
         
         # Draw in a grid 2x2
@@ -152,7 +151,7 @@ class Visualizer:
             "",
             "Dashboard:",
             "- Score History: Raw score per game",
-            "- Mean Score: Average of last 100 games",
+            "- Average Score: Average of last 100 games",
             "- Loss Trend: Training error (lower is better)",
         ]
         
@@ -297,7 +296,7 @@ class Visualizer:
         loss_rect = pygame.Rect(rect.x + 10, rect.y + 30 + h_half + 20, rect.width - 20, h_half)
 
         # 1. Score Graph
-        self._draw_single_chart(surface, score_rect, agent.score_history, agent.mean_score_history, "Score History", CYAN, ORANGE)
+        self._draw_single_chart(surface, score_rect, agent.score_history, agent.average_score_history, "Score History", CYAN, ORANGE)
 
         # 2. Loss Graph
         # We only pass one history list for loss
@@ -392,6 +391,6 @@ class Visualizer:
             pygame.draw.lines(surface, color2, False, points2, 3)
             
             # Legend
-            leg_text = "Mean (L100)"
+            leg_text = "Average (L100)"
             leg = self.small_font.render(leg_text, True, color2)
             surface.blit(leg, (rect.right - 80, rect.y + 5))

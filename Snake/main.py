@@ -238,7 +238,7 @@ def main():
                             # Always record score history to show progress (even 0)
                             agent.score_history.append(score)
                             mean_score = np.mean(agent.score_history[-100:])
-                            agent.mean_score_history.append(mean_score)
+                            agent.average_score_history.append(mean_score)
                             
                             if score > (max(agent.score_history[:-1]) if len(agent.score_history) > 1 else 0):
                                 agent.model.save()
@@ -303,16 +303,20 @@ def main():
             visualizer.draw_dashboard(screen, agent, LEFT_PANEL_W, 0, RIGHT_PANEL_W, WINDOW_H, focused_activations, dashboard_mode, focused_game_idx, paused)
             
         else:
-            # FULLSCREEN FOCUS VIEW
-            # Draw only the focused game using full window dimensions
-            # We skip the visualizer in this mode to maximize the game view
-            is_dead = game_cooldowns[focused_game_idx] > 0
-            games[focused_game_idx].draw(screen, 0, 0, WINDOW_W, WINDOW_H, interpolation=alpha, is_dead=is_dead)
+            # FULLSCREEN FOCUS VIEW (BUT WITH STATS)
+            # Draw only the focused game in the LEFT PANEL (so it's bigger than grid, but allows stats on right)
             
-            # Optional: Overlay some minimal info
-            font = pygame.font.SysFont('Arial', 24)
-            text = font.render(f"Agent {focused_game_idx+1} | Score: {games[focused_game_idx].score}", True, (255, 255, 255))
-            screen.blit(text, (20, 20))
+            # Use LEFT_PANEL_W for the game area
+            # Center it vertically if needed or fill
+            game_w = LEFT_PANEL_W
+            game_h = WINDOW_H # Or keep aspect ratio?
+            
+            # Simple fill for now
+            is_dead = game_cooldowns[focused_game_idx] > 0
+            games[focused_game_idx].draw(screen, 0, 0, game_w, game_h, interpolation=alpha, is_dead=is_dead)
+            
+            # Draw Visualizer on the right as usual
+            visualizer.draw_dashboard(screen, agent, LEFT_PANEL_W, 0, RIGHT_PANEL_W, WINDOW_H, focused_activations, dashboard_mode, focused_game_idx, paused)
 
         # Capture and Stream Frame (Limit to 60 FPS)
         if current_time - last_stream_time > 16: # ~60 FPS
@@ -320,9 +324,9 @@ def main():
              try:
                  # Resize for dashboard? 
                  # Let's send full res but scaled down if too big to save bandwidth
-                 # Target width ~1280 (HD) for better quality
-                 target_w = 1280
-                 target_h = int(WINDOW_H * (1280 / WINDOW_W))
+                 # Target width ~960 for better performance/smoothness
+                 target_w = 960
+                 target_h = int(WINDOW_H * (960 / WINDOW_W))
                  scaled = pygame.transform.smoothscale(screen, (target_w, target_h))
                  
                  # Save to buffer

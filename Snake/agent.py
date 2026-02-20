@@ -24,7 +24,7 @@ class Agent:
         # Stats
         self.loss_history = []
         self.score_history = []
-        self.mean_score_history = []
+        self.average_score_history = []
 
     def get_state(self, game):
         head = game.snake[0]

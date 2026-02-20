@@ -121,7 +121,7 @@
                             <div class="col-6">
                                 <div class="dashboard-card p-3 text-center mb-0">
                                     <div class="stat-value" id="snake-mean">0.0</div>
-                                    <div class="stat-label">Mean Score (L100)</div>
+                                    <div class="stat-label">Average Score (L100)</div>
                                 </div>
                             </div>
                         </div>
@@ -130,6 +130,15 @@
                         <div class="dashboard-card">
                             <div class="card-header">Control Panel</div>
                             <div class="card-body p-4">
+                                <label class="form-label text-muted text-uppercase small fw-bold">View Mode</label>
+                                <div class="btn-group w-100 mb-4" role="group">
+                                    <button type="button" class="btn btn-outline-light active" id="btn-view-grid" onclick="setGridMode()">Grid</button>
+                                    <button type="button" class="btn btn-outline-light" onclick="setFocus(0)">1</button>
+                                    <button type="button" class="btn btn-outline-light" onclick="setFocus(1)">2</button>
+                                    <button type="button" class="btn btn-outline-light" onclick="setFocus(2)">3</button>
+                                    <button type="button" class="btn btn-outline-light" onclick="setFocus(3)">4</button>
+                                </div>
+
                                 <label class="form-label text-muted text-uppercase small fw-bold">Simulation Speed</label>
                                 <div class="d-flex align-items-center mb-4">
                                     <input type="range" class="form-range flex-grow-1" min="5" max="120" id="fps-slider" oninput="updateFPSDisplay()" onchange="sendSettings()">
@@ -379,6 +388,24 @@
         }
         function sendSettings() {
             fetch('/api/snake/settings', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({fps: parseInt(document.getElementById('fps-slider').value)})});
+        }
+        
+        function setGridMode() {
+            // Update UI (active button)
+            document.querySelectorAll('.btn-group button').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-view-grid').classList.add('active');
+            
+            sendCommand('VIEW_GRID');
+        }
+        
+        function setFocus(idx) {
+            // Update UI (active button)
+            document.querySelectorAll('.btn-group button').forEach(b => b.classList.remove('active'));
+            // This is a bit hacky to find the button by index, but it works given the structure
+            const buttons = document.querySelectorAll('.btn-group button');
+            if (buttons[idx + 1]) buttons[idx + 1].classList.add('active'); // +1 because first is Grid
+            
+            sendCommand(`FOCUS_${idx}`);
         }
 
         // Init
