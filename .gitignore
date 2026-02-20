@@ -1,7 +1,5 @@
 venv/
 __pycache__/
-<<<<<<< HEAD
-=======
+
 Ptak/uploads/
 *.webm
->>>>>>> 828a40c (update 02-19 22:45)
