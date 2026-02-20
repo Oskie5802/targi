@@ -8,11 +8,14 @@ import subprocess
 import shutil
 import uuid
 
-app = Flask(__name__, static_url_path='')
+app = Flask(__name__)
 
 # Konfiguracja bazy danych
-DB_PATH = 'leaderboard.db'
-UPLOAD_FOLDER = 'uploads'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, 'leaderboard.db')
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
+JS_FOLDER = os.path.join(BASE_DIR, 'js')
+CSS_FOLDER = os.path.join(BASE_DIR, 'css')
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -153,23 +156,23 @@ def init_db():
 
 @app.route('/')
 def index():
-    return send_from_directory('.', 'ptak.html')
+    return send_from_directory(BASE_DIR, 'ptak.html')
 
 @app.route('/leaderboard')
 def board_page():
-    return send_from_directory('.', 'ptak_leaderboard.html')
+    return send_from_directory(BASE_DIR, 'ptak_leaderboard.html')
 
 @app.route('/leaderboard1')
 def board1_page():
-    return send_from_directory('.', 'leaderboard1.html')
+    return send_from_directory(BASE_DIR, 'leaderboard1.html')
 
 @app.route('/leaderboard2')
 def board2_page():
-    return send_from_directory('.', 'leaderboard2.html')
+    return send_from_directory(BASE_DIR, 'leaderboard2.html')
 
 @app.route('/dashboard')
 def dashboard_page():
-    return send_from_directory('.', 'dashboard.html')
+    return send_from_directory(BASE_DIR, 'dashboard.html')
 
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
@@ -177,11 +180,15 @@ def uploaded_file(filename):
 
 @app.route('/js/<path:filename>')
 def serve_js(filename):
-    return send_from_directory('js', filename)
+    return send_from_directory(JS_FOLDER, filename)
 
 @app.route('/css/<path:filename>')
 def serve_css(filename):
-    return send_from_directory('css', filename)
+    return send_from_directory(CSS_FOLDER, filename)
+
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204
 
 # --- API dla Snake ---
 
