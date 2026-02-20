@@ -175,6 +175,14 @@ def dashboard_page():
 def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
+@app.route('/js/<path:filename>')
+def serve_js(filename):
+    return send_from_directory('js', filename)
+
+@app.route('/css/<path:filename>')
+def serve_css(filename):
+    return send_from_directory('css', filename)
+
 # --- API dla Snake ---
 
 @app.route('/api/snake/state', methods=['POST'])
