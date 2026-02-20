@@ -756,66 +756,67 @@
     // ==========================================
     // SCREEN STREAMING (For Dashboard Live Preview)
     // ==========================================
-    let lastStreamTime = 0;
-    const STREAM_INTERVAL = 16; // ~60 FPS
+    
+    // Hidden Canvases for Resizing
+    const gameStreamCanvas = document.createElement('canvas');
+    const gameStreamCtx = gameStreamCanvas.getContext('2d');
+    const cameraStreamCanvas = document.createElement('canvas');
+    const cameraStreamCtx = cameraStreamCanvas.getContext('2d');
+    
+    // Target resolution for stream (lower than 4K for performance)
+    const STREAM_WIDTH = 640;
+    const STREAM_HEIGHT = 360; 
 
-    function streamGameScreen() {
-        const now = Date.now();
-        if (now - lastStreamTime < STREAM_INTERVAL) return;
-        lastStreamTime = now;
+    gameStreamCanvas.width = STREAM_WIDTH;
+    gameStreamCanvas.height = STREAM_HEIGHT;
+    cameraStreamCanvas.width = STREAM_WIDTH;
+    cameraStreamCanvas.height = STREAM_HEIGHT;
 
-        if (renderer && renderer.domElement) {
-            renderer.domElement.toBlob((blob) => {
-                if (blob) {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 800); // 800ms timeout for upload
+    let gameBusy = { value: false };
+    let cameraBusy = { value: false };
 
-                    fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/octet-stream' },
-                        body: blob
-                    }).catch(e => {}); // Ignore errors
-                }
-            }, 'image/jpeg', 0.6); // 60% quality is enough for preview
-        }
+    function sendFrame(sourceCanvas, targetCanvas, targetCtx, url, busyRef) {
+        if (busyRef.value) return;
+        if (!sourceCanvas || sourceCanvas.width === 0 || sourceCanvas.height === 0) return;
+
+        busyRef.value = true;
         
-        // Stream Camera as well
-        const poseCanvas = document.getElementById('poseCanvas');
-        if (poseCanvas) {
-             poseCanvas.toBlob((blob) => {
-                if (blob) {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 800);
-
-                    fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/octet-stream' },
-                        body: blob,
-                        signal: controller.signal
-                    })
-                    .then(() => { 
-                        clearTimeout(timeoutId);
-                        clearTimeout(safetyReset);
-                        isBusyRef.value = false; 
-                    })
-                    .catch(e => { 
-                        clearTimeout(timeoutId);
-                        clearTimeout(safetyReset);
-                        isBusyRef.value = false; 
-                    });
-                } else {
-                    clearTimeout(safetyReset);
-                    isBusyRef.value = false;
+        try {
+            // Resize draw
+            targetCtx.drawImage(sourceCanvas, 0, 0, targetCanvas.width, targetCanvas.height);
+            
+            targetCanvas.toBlob((blob) => {
+                if (!blob) {
+                    busyRef.value = false;
+                    return;
                 }
-            }, 'image/jpeg', 0.6);
+                
+                fetch(url, {
+                    method: 'POST',
+                    body: blob,
+                    headers: { 'Content-Type': 'image/jpeg' }
+                })
+                .then(() => { busyRef.value = false; })
+                .catch(e => { 
+                    // console.error("Stream error", e); 
+                    busyRef.value = false; 
+                });
+                
+            }, 'image/jpeg', 0.7); // 70% quality
+        } catch(e) {
+            console.error("Canvas draw error", e);
+            busyRef.value = false;
         }
     }
+
+    let lastStreamTime = 0;
+    const STREAM_INTERVAL = 33; // ~30 FPS
 
     function streamGameLoop() {
         if (renderer && renderer.domElement) {
             sendFrame(renderer.domElement, gameStreamCanvas, gameStreamCtx, '/api/stream/ptak', gameBusy);
         }
-        setTimeout(streamGameLoop, 16); // Cap at ~60 FPS
+        setTimeout(streamGameLoop, STREAM_INTERVAL);
     }
 
     function streamCameraLoop() {
@@ -823,7 +824,7 @@
         if (poseCanvas) {
              sendFrame(poseCanvas, cameraStreamCanvas, cameraStreamCtx, '/api/stream/ptak/camera', cameraBusy);
         }
-        setTimeout(streamCameraLoop, 16); // Cap at ~60 FPS
+        setTimeout(streamCameraLoop, STREAM_INTERVAL);
     }
 
     // Start loops with a slight delay
