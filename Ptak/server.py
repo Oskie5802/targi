@@ -9,6 +9,7 @@ import shutil
 import uuid
 
 app = Flask(__name__, static_folder=None)
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
 # Konfiguracja bazy danych
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
