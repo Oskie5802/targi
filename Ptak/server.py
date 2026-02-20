@@ -8,7 +8,7 @@ import subprocess
 import shutil
 import uuid
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=None)
 
 # Konfiguracja bazy danych
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -178,11 +178,11 @@ def dashboard_page():
 def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
-@app.route('/js/<path:filename>')
+@app.route('/static/js/<path:filename>')
 def serve_js(filename):
     return send_from_directory(JS_FOLDER, filename)
 
-@app.route('/css/<path:filename>')
+@app.route('/static/css/<path:filename>')
 def serve_css(filename):
     return send_from_directory(CSS_FOLDER, filename)
 

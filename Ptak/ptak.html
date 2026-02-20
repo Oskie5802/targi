@@ -24,25 +24,25 @@
     <meta property="twitter:description" content="flap your arms to fly">
     <meta property="twitter:image" content="https://funwithcomputervision.com/assets/wingman.png">
 
-    <script defer src="js/umami.js" data-website-id="376d8af4-cd09-461a-9ca9-f5eeed83e857"></script>
+    <script defer src="static/js/umami.js" data-website-id="376d8af4-cd09-461a-9ca9-f5eeed83e857"></script>
   
   <!-- Tailwind CSS -->
-  <script src="js/tailwindcss.js"></script>
+  <script src="static/js/tailwindcss.js"></script>
   
   <!-- Google Fonts: Pixel Art Font -->
-  <link href="css/fonts.css" rel="stylesheet">
+  <link href="static/css/fonts.css" rel="stylesheet">
   
   <!-- Three.js -->
-  <script src="js/three.min.js"></script>
+  <script src="static/js/three.min.js"></script>
   
   <!-- MediaPipe Dependencies -->
-  <script src="js/camera_utils.js" crossorigin="anonymous"></script>
-  <script src="js/control_utils.js" crossorigin="anonymous"></script>
-  <script src="js/drawing_utils.js" crossorigin="anonymous"></script>
-  <script src="js/pose.js" crossorigin="anonymous"></script>
+  <script src="static/js/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="static/js/control_utils.js" crossorigin="anonymous"></script>
+  <script src="static/js/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="static/js/pose.js" crossorigin="anonymous"></script>
   
   <!-- Tone.js for Audio -->
-  <script src="js/Tone.js"></script>
+  <script src="static/js/Tone.js"></script>
   
   <style>
     * {
@@ -1144,7 +1144,7 @@
 
       poseInstance = new window.Pose({
         locateFile: (file) => {
-          return `js/mediapipe/${file}`;
+          return `static/js/mediapipe/${file}`;
         }
       });
 
