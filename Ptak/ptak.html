@@ -763,9 +763,9 @@
     const cameraStreamCanvas = document.createElement('canvas');
     const cameraStreamCtx = cameraStreamCanvas.getContext('2d');
     
-    // Target resolution for stream (lower than 4K for performance)
-    const STREAM_WIDTH = 640;
-    const STREAM_HEIGHT = 360; 
+    // Target resolution for stream (1:1 Square)
+    const STREAM_WIDTH = 720;
+    const STREAM_HEIGHT = 720; 
 
     gameStreamCanvas.width = STREAM_WIDTH;
     gameStreamCanvas.height = STREAM_HEIGHT;
@@ -782,8 +782,27 @@
         busyRef.value = true;
         
         try {
-            // Resize draw
-            targetCtx.drawImage(sourceCanvas, 0, 0, targetCanvas.width, targetCanvas.height);
+            // Smart Resize (Cover / Crop) to fill screen without distortion
+            const sw = sourceCanvas.width;
+            const sh = sourceCanvas.height;
+            const tw = targetCanvas.width;
+            const th = targetCanvas.height;
+            
+            // Calculate scale to COVER target (zoom in to fill)
+            const scale = Math.max(tw / sw, th / sh);
+            const w = sw * scale;
+            const h = sh * scale;
+            
+            // Center crop
+            const x = (tw - w) / 2;
+            const y = (th - h) / 2;
+
+            // Clear (not needed for cover but good practice)
+            // targetCtx.fillStyle = '#000000';
+            // targetCtx.fillRect(0, 0, tw, th);
+            
+            // Draw scaled image centered (cropping excess)
+            targetCtx.drawImage(sourceCanvas, 0, 0, sw, sh, x, y, w, h);
             
             targetCanvas.toBlob((blob) => {
                 if (!blob) {
