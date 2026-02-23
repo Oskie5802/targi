@@ -58,9 +58,6 @@ echo ""
 # --start-fullscreen          → Pelny ekran
 
 exec "$BROWSER" \
-    --use-gl=desktop \
-    --enable-accelerated-video-decode \
-    --enable-accelerated-2d-canvas \
     --ignore-certificate-errors \
     --ignore-certificate-errors-spki-list \
     --disable-web-security \
