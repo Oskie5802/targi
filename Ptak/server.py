@@ -7,6 +7,21 @@ import threading
 import subprocess
 import shutil
 import uuid
+import socket
+
+def get_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # doesn't even have to be reachable
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+    except Exception:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+
+LOCAL_IP = get_local_ip()
 
 app = Flask(__name__, static_folder=None)
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
@@ -74,7 +89,7 @@ def ensure_ssl_cert():
             '-days',   '3650',
             '-nodes',
             '-subj',   '/CN=targi-server/O=Targi/C=PL',
-            '-addext', 'subjectAltName=IP:192.168.55.101,IP:127.0.0.1,DNS:localhost'
+            '-addext', f'subjectAltName=IP:{LOCAL_IP},IP:127.0.0.1,DNS:localhost'
         ], check=True, capture_output=True)
         print(f"[SSL] Certificate saved to {SSL_CERT}")
         return (SSL_CERT, SSL_KEY)
@@ -465,7 +480,7 @@ def stop_recording():
     return jsonify({'status': 'stopped', 'filename': filename})
 
 
-# --- API dla Mediów Ptaka ---
+# --- API dla Mediow Ptaka ---
 
 @app.route('/api/media', methods=['GET'])
 def list_media():
@@ -513,7 +528,7 @@ def delete_media(filename):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# --- Istniejące API Ptaka ---
+# --- Istniejace API Ptaka ---
 
 @app.route('/api/scores', methods=['GET'])
 def get_scores():
@@ -521,8 +536,8 @@ def get_scores():
         limit = request.args.get('limit', 100, type=int)
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        # Zmieniono zapytanie, aby filtrowac wyniki <= 0
-        c.execute('SELECT name, score, id, video_path FROM scores WHERE score > 0 ORDER BY score DESC LIMIT ?', (limit,))
+        # Filter out empty names, ANON, and auto-generated zero lines (-)
+        c.execute("SELECT name, score, id, video_path FROM scores WHERE score > 0 AND name != 'ANON' AND name != '-' AND name != '' ORDER BY score DESC LIMIT ?", (limit,))
         rows = c.fetchall()
         conn.close()
         
@@ -648,7 +663,7 @@ def upload_media(score_id):
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    # Upewnij się, że jesteśmy w katalogu skryptu
+    # Upewnij sie, ze jestesmy w katalogu skryptu
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     
     init_db()
@@ -656,9 +671,10 @@ if __name__ == '__main__':
     
     print("===============================================================")
     print(" SERWER GRY URUCHOMIONY (HTTPS)")
-    print(" Gra:         https://192.168.55.101:5001")
-    print(" Leaderboard: https://192.168.55.101:5001/leaderboard")
-    print(" Dashboard:   https://192.168.55.101:5001/dashboard")
+    print(f" Gra:                   https://localhost:5001")
+    print(f" Wyniki (Monitor 1):    https://{LOCAL_IP}:5001/leaderboard1")
+    print(f" Live Feed (Monitor 2): https://{LOCAL_IP}:5001/leaderboard2")
+    print(f" Dashboard:             https://{LOCAL_IP}:5001/dashboard")
     print(f" FFmpeg encoder: {FFMPEG_ENCODER}")
     print("===============================================================")
     app.run(host='0.0.0.0', port=5001, threaded=True, ssl_context=ssl_ctx)

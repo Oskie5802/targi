@@ -1,11 +1,11 @@
 #!/bin/bash
 # =============================================================================
 # START_GAME.SH – Klient Gry Targi (Debian Linux)
-# Otwiera grę w Chromium z odpowiednimi flagami dla kamery i HTTPS
+# Otwiera gre w Chromium z odpowiednimi flagami dla kamery i HTTPS
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-SERVER_IP="${1:-192.168.55.101}"  # Podaj IP serwera jako argument, np: ./start_game.sh 192.168.0.10
+SERVER_IP="${1:-localhost}"  # Podaj IP serwera jako argument (domyslnie localhost bo z tej samej maszyny)
 SERVER_URL="https://${SERVER_IP}:5001"
 
 GREEN='\033[0;32m'
@@ -19,15 +19,15 @@ echo ""
 echo -e "Serwer: ${YELLOW}${SERVER_URL}${NC}"
 echo ""
 
-# --- Sprawdź czy serwer odpowiada ---
-echo -n "Sprawdzam połączenie z serwerem... "
+# --- Sprawdz czy serwer odpowiada ---
+echo -n "Sprawdzam polaczenie z serwerem... "
 if curl -sk --max-time 3 "${SERVER_URL}/" > /dev/null 2>&1; then
     echo -e "${GREEN}OK${NC}"
 else
-    echo -e "${YELLOW}Brak odpowiedzi (serwer może być wyłączony lub certyfikat SSL niezaufany)${NC}"
+    echo -e "${YELLOW}Brak odpowiedzi (serwer moze byc wylaczony lub certyfikat SSL niezaufany)${NC}"
 fi
 
-# --- Znajdź Chromium ---
+# --- Znajdz Chromium ---
 BROWSER=""
 for b in chromium chromium-browser google-chrome google-chrome-stable; do
     if command -v "$b" &> /dev/null; then
@@ -37,25 +37,25 @@ for b in chromium chromium-browser google-chrome google-chrome-stable; do
 done
 
 if [ -z "$BROWSER" ]; then
-    echo -e "${YELLOW}Nie znaleziono Chromium/Chrome. Instaluję chromium...${NC}"
+    echo -e "${YELLOW}Nie znaleziono Chromium/Chrome. Instaluje chromium...${NC}"
     sudo apt-get install -y chromium
     BROWSER="chromium"
 fi
 
-echo -e "${GREEN}[OK]${NC} Przeglądarka: $BROWSER"
+echo -e "${GREEN}[OK]${NC} Przegladarka: $BROWSER"
 echo ""
 echo "Otwieranie gry..."
-echo -e "${YELLOW}UWAGA: Przy pierwszym uruchomieniu kliknij 'Zaawansowane' → 'Przejdź mimo to'${NC}"
-echo -e "${YELLOW}       (certyfikat self-signed – wystarczy raz zaakceptować)${NC}"
+echo -e "${YELLOW}UWAGA: Przy pierwszym uruchomieniu kliknij 'Zaawansowane' → 'Przejdz mimo to'${NC}"
+echo -e "${YELLOW}       (certyfikat self-signed – wystarczy raz zaakceptowac)${NC}"
 echo ""
 
-# Flagi Chromium dla optymalnej wydajności gry:
-# --use-gl=desktop           → OpenGL sprzętowy (lepszy rendering Three.js)
-# --enable-accelerated-video-decode → Sprzętowe dekodowanie video
+# Flagi Chromium dla optymalnej wydajnosci gry:
+# --use-gl=desktop           → OpenGL sprzetowy (lepszy rendering Three.js)
+# --enable-accelerated-video-decode → Sprzetowe dekodowanie video
 # --ignore-certificate-errors → Akceptuj self-signed SSL (serwer lokalny)
-# --camera-access             → Pozwól na dostęp do kamery bez dodatkowych promptów
-# --app                       → Tryb "app" bez paska przeglądarki (fullscreen feel)
-# --start-fullscreen          → Pełny ekran
+# --camera-access             → Pozwol na dostep do kamery bez dodatkowych promptow
+# --app                       → Tryb "app" bez paska przegladarki (fullscreen feel)
+# --start-fullscreen          → Pelny ekran
 
 exec "$BROWSER" \
     --use-gl=desktop \

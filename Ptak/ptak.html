@@ -625,6 +625,64 @@
       background-color: #06b6d4;
       transform: scale(1.05);
     }
+
+    /* Flap Animation Styles */
+    .flap-animation-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 15px;
+    }
+
+    .flap-svg {
+      animation: bird-bounce 1.5s infinite ease-in-out;
+    }
+
+    .left-arm {
+      transform-origin: 50px 40px;
+      animation: flap-left 1.5s infinite ease-in-out;
+    }
+
+    .right-arm {
+      transform-origin: 50px 40px;
+      animation: flap-right 1.5s infinite ease-in-out;
+    }
+
+    @keyframes flap-left {
+
+      0%,
+      100% {
+        transform: rotate(-40deg);
+      }
+
+      50% {
+        transform: rotate(40deg);
+      }
+    }
+
+    @keyframes flap-right {
+
+      0%,
+      100% {
+        transform: rotate(40deg);
+      }
+
+      50% {
+        transform: rotate(-40deg);
+      }
+    }
+
+    @keyframes bird-bounce {
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-15px);
+      }
+    }
   </style>
 </head>
 
@@ -656,7 +714,7 @@
         <div id="instructionsOverlay" class="instructions-overlay hidden">
           <div class="instructions-content">
             <span style="display: flex; align-items: center; gap: 0.25rem;">
-              <div class="status-dot dot-cyan"></div> UNIEŚ
+              <div class="status-dot dot-cyan"></div> UNIES
             </span>
             <span style="display: flex; align-items: center; gap: 0.25rem;">
               <div class="status-dot dot-red"></div> MACHNIJ
@@ -706,7 +764,22 @@
 
               </p>
               <div class="takeoff-panel">
-                <p class="takeoff-text font-retro">Machaj rekami aby rozpocząć</p>
+                <p class="takeoff-text font-retro">Machaj rekami aby rozpoczac</p>
+                <div class="flap-animation-container">
+                  <svg class="flap-svg" viewBox="0 0 100 100" width="80" height="80">
+                    <line x1="50" y1="30" x2="50" y2="70" stroke="currentColor" stroke-width="4"
+                      stroke-linecap="round" />
+                    <circle cx="50" cy="20" r="10" stroke="currentColor" stroke-width="4" fill="none" />
+                    <line x1="50" y1="70" x2="35" y2="95" stroke="currentColor" stroke-width="4"
+                      stroke-linecap="round" />
+                    <line x1="50" y1="70" x2="65" y2="95" stroke="currentColor" stroke-width="4"
+                      stroke-linecap="round" />
+                    <line x1="50" y1="40" x2="10" y2="40" stroke="currentColor" stroke-width="6" class="arm left-arm"
+                      stroke-linecap="round" />
+                    <line x1="50" y1="40" x2="90" y2="40" stroke="currentColor" stroke-width="6" class="arm right-arm"
+                      stroke-linecap="round" />
+                  </svg>
+                </div>
               </div>
             </div>
           </div>
@@ -722,7 +795,7 @@
           </div>
 
           <div id="nameInputSection" class="name-input-section hidden">
-            <p class="final-score-label font-retro" style="font-size: 0.8rem;">WPISZ IMIĘ:</p>
+            <p class="final-score-label font-retro" style="font-size: 0.8rem;">WPISZ IMIE:</p>
             <input type="text" id="playerNameInput" class="font-retro" maxlength="10">
             <button id="submitNameButton" class="font-retro">ZAPISZ (ENTER)</button>
           </div>
@@ -738,7 +811,22 @@
             <div id="readyToRestartState" class="hidden"
               style="display: flex; flex-direction: column; align-items: center; gap: 1.5rem;">
               <button id="restartButton" class="restart-button font-retro">
-                MACHNIJ ABY ROZPOCZĄĆ
+                MACHNIJ ABY ROZPOCZAC
+                <div class="flap-animation-container">
+                  <svg class="flap-svg" viewBox="0 0 100 100" width="80" height="80">
+                    <line x1="50" y1="30" x2="50" y2="70" stroke="currentColor" stroke-width="4"
+                      stroke-linecap="round" />
+                    <circle cx="50" cy="20" r="10" stroke="currentColor" stroke-width="4" fill="none" />
+                    <line x1="50" y1="70" x2="35" y2="95" stroke="currentColor" stroke-width="4"
+                      stroke-linecap="round" />
+                    <line x1="50" y1="70" x2="65" y2="95" stroke="currentColor" stroke-width="4"
+                      stroke-linecap="round" />
+                    <line x1="50" y1="40" x2="10" y2="40" stroke="currentColor" stroke-width="6" class="arm left-arm"
+                      stroke-linecap="round" />
+                    <line x1="50" y1="40" x2="90" y2="40" stroke="currentColor" stroke-width="6" class="arm right-arm"
+                      stroke-linecap="round" />
+                  </svg>
+                </div>
               </button>
             </div>
           </div>

@@ -4,8 +4,8 @@
 
 ```
 [Debian – Server + Klient Gry]  ←──LAN──→  [Windows 10 – Leaderboard]
-  Flask server:5001                            Chrome/Edge → https://IP:5001/leaderboard
-  Chromium (gra) → localhost:5001/           
+  Flask server:5001                            Monitor 1 (Wyniki): https://IP:5001/leaderboard1
+  Chromium (gra) → localhost:5001/             Monitor 2 (Kamera): https://IP:5001/leaderboard2
   FFmpeg (nagrywanie)
   MediaPipe (kamera)
 ```
@@ -55,8 +55,9 @@ Akceptacja certyfikatu jest automatyczna (`--ignore-certificate-errors`).
 ### Krok 1: Zaakceptuj certyfikat SSL w Chrome/Edge
 
 1. Otwórz Chrome lub Edge na Windows 10
-2. Wejdź na: `https://192.168.55.101:5001/leaderboard`
-3. Kliknij **"Zaawansowane"** → **"Przejdź do 192.168.55.101 (niebezpieczne)"**
+2. Wejdź na monitorze 1: `https://192.168.55.101:5001/leaderboard1`
+3. Wejdź na monitorze 2: `https://192.168.55.101:5001/leaderboard2`
+4. Kliknij w przeglądarce **"Zaawansowane"** → **"Przejdź do 192.168.55.101 (niebezpieczne)"**
 4. Od teraz Chrome zapamiętuje certyfikat – nie pyta ponownie
 
 > Certyfikat jest ważny **10 lat** i zawiera IP serwera w SAN (Subject Alternative Name),  
@@ -75,16 +76,21 @@ Jeśli chcesz całkowicie usunąć ostrzeżenia:
 ### Skrót do leaderboardu (Windows 10)
 
 Stwórz plik `leaderboard.bat` na pulpicie:
+Stwórz dwa osobne pliki na pulpicie dla obu monitorów:
+
+**`monitor1-wyniki.bat`**:
 ```batch
 @echo off
-start chrome.exe --start-fullscreen "https://192.168.55.101:5001/leaderboard"
+start chrome.exe --start-fullscreen --window-position=0,0 "https://192.168.55.101:5001/leaderboard1"
 ```
 
-Lub dla Edge:
+**`monitor2-kamera.bat`**:
 ```batch
 @echo off
-start msedge.exe --start-fullscreen "https://192.168.55.101:5001/leaderboard"
+start chrome.exe --start-fullscreen --window-position=1080,0 "https://192.168.55.101:5001/leaderboard2"
 ```
+
+*(Dostosuj współrzędne w `--window-position` zależnie od fizycznego układu monitorów na komputerze Windows 10)*
 
 ---
 
