@@ -325,7 +325,7 @@
                                         <a class="nav-link" data-bs-toggle="pill" href="#p-leaderboard">Leaderboard</a>
                                     </li>
                                 </ul>
-                                <button class="btn btn-sm btn-outline-light" onclick="loadMedia()"><i
+                                <button class="btn btn-sm btn-outline-light" onclick="loadMedia(); loadScores();"><i
                                         class="fas fa-sync"></i></button>
                             </div>
                             <div class="card-body overflow-auto" style="height: 580px;">
@@ -336,8 +336,22 @@
                                         </div>
                                     </div>
                                     <div class="tab-pane fade" id="p-leaderboard">
-                                        <iframe src="/leaderboard1"
-                                            style="width:100%; height:550px; border:none;"></iframe>
+                                        <div class="table-responsive" style="height: 550px">
+                                            <table class="table table-dark table-hover table-sm mb-0">
+                                                <thead class="sticky-top bg-dark">
+                                                    <tr>
+                                                        <th class="text-center" style="width:50px;">#</th>
+                                                        <th>Name</th>
+                                                        <th class="text-end">Score</th>
+                                                        <th class="text-center">Clip</th>
+                                                        <th class="text-center">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="dashboard-scores-body">
+                                                    <!-- Loaded via JS -->
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -453,22 +467,23 @@
                         col.className = 'col-6 col-md-4 mb-2';
                         let content = '';
                         if (item.type === 'video') {
-                            content = `<video src="/uploads/${item.filename}" class="camera-preview" controls></video>`;
+                            content = `<video src="/uploads/${item.filename}" class="camera-preview" style="object-fit: contain;" controls></video>`;
                         } else {
-                            content = `<img src="/uploads/${item.filename}" class="camera-preview">`;
+                            content = `<img src="/uploads/${item.filename}" class="camera-preview" style="object-fit: contain;">`;
                         }
 
                         const nameDisplay = item.name === '-' ? '<i>(Auto)</i>' : `<b>${item.name}</b>`;
 
                         col.innerHTML = `
-                            <div class="card bg-dark border-secondary">
+                            <div class="card bg-dark border-secondary h-100">
                                 ${content}
-                                <div class="card-footer p-2 d-flex justify-content-between align-items-center">
+                                <div class="card-footer p-2 d-flex justify-content-between align-items-center mt-auto">
                                     <div style="font-size: 0.8rem; line-height: 1.2;">
                                         ${nameDisplay}<br>
                                         <span class="text-warning">Score: ${item.score}</span>
                                     </div>
-                                    <button class="btn btn-xs btn-outline-danger" style="font-size: 0.7em" onclick="deleteMedia('${item.filename}')"><i class="fas fa-trash"></i></button>
+                                    <!-- Only delete file, score might still be there for manual media deletion -->
+                                    <button class="btn btn-xs btn-outline-danger" style="font-size: 0.7em" onclick="deleteMedia('${item.filename}')" title="Delete Clip Only"><i class="fas fa-trash"></i></button>
                                 </div>
                             </div>
                         `;
@@ -478,7 +493,52 @@
         }
 
         function deleteMedia(f) {
-            if (confirm('Delete?')) fetch(`/api/media/${f}`, { method: 'DELETE' }).then(loadMedia);
+            if (confirm('Delete this video clip?')) fetch(`/api/media/${f}`, { method: 'DELETE' }).then(() => {
+                loadMedia();
+                loadScores(); // sync in case
+            });
+        }
+
+        function loadScores() {
+            fetch('/api/scores?limit=100')
+                .then(r => r.json())
+                .then(items => {
+                    const tbody = document.getElementById('dashboard-scores-body');
+                    tbody.innerHTML = '';
+                    if (!items || items.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No scores yet</td></tr>';
+                        return;
+                    }
+                    items.forEach((item, index) => {
+                        const clipBtn = item.video_path ?
+                            `<a href="${item.video_path}" target="_blank" class="btn btn-sm btn-outline-info py-0 px-2"><i class="fas fa-play"></i></a>` :
+                            `<span class="text-muted">-</span>`;
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="text-center text-muted">${index + 1}</td>
+                            <td class="fw-bold text-white">${item.name}</td>
+                            <td class="text-end text-warning fw-bold">${item.score}</td>
+                            <td class="text-center">${clipBtn}</td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-danger py-0 px-2" title="Delete Score" onclick="deleteScore(${item.id})"><i class="fas fa-trash"></i></button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                })
+                .catch(err => console.error("Error loading scores", err));
+        }
+
+        function deleteScore(id) {
+            if (confirm('Delete this score and its video clip?')) {
+                fetch(`/api/scores/${id}`, { method: 'DELETE' })
+                    .then(r => r.json())
+                    .then(() => {
+                        loadScores();
+                        loadMedia();
+                    });
+            }
         }
 
         // --- SNAKE CONTROLS ---
@@ -524,6 +584,7 @@
 
         // Init
         loadMedia();
+        loadScores();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>

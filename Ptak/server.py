@@ -145,10 +145,11 @@ class StreamRecorder:
 
         base = [
             'ffmpeg', '-y',
+            '-use_wallclock_as_timestamps', '1',
             '-f', 'image2pipe',
             '-vcodec', 'mjpeg',
-            '-r', '60',          # 60fps input (matches camera stream rate)
             '-i', '-',
+            '-r', '60',          # Target output framerate
         ]
 
         if FFMPEG_ENCODER == 'vaapi':
@@ -382,12 +383,16 @@ def gen_snake_frames():
         if snake_frame_event.wait(timeout=1.0):
             snake_frame_event.clear()
             if latest_snake_frame:
+                frame = latest_snake_frame
                 yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + latest_snake_frame + b'\r\n')
+                       b'Content-Type: image/jpeg\r\n'
+                       b'Content-Length: ' + str(len(frame)).encode() + b'\r\n\r\n' + frame + b'\r\n')
         else:
             if latest_snake_frame:
+                 frame = latest_snake_frame
                  yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + latest_snake_frame + b'\r\n')
+                       b'Content-Type: image/jpeg\r\n'
+                       b'Content-Length: ' + str(len(frame)).encode() + b'\r\n\r\n' + frame + b'\r\n')
 
 @app.route('/api/stream/snake/mjpeg')
 def stream_snake_mjpeg():
@@ -410,12 +415,16 @@ def gen_ptak_frames():
         if ptak_frame_event.wait(timeout=1.0):
             ptak_frame_event.clear()
             if latest_ptak_frame:
+                frame = latest_ptak_frame
                 yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + latest_ptak_frame + b'\r\n')
+                       b'Content-Type: image/jpeg\r\n'
+                       b'Content-Length: ' + str(len(frame)).encode() + b'\r\n\r\n' + frame + b'\r\n')
         else:
              if latest_ptak_frame:
+                frame = latest_ptak_frame
                 yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + latest_ptak_frame + b'\r\n')
+                       b'Content-Type: image/jpeg\r\n'
+                       b'Content-Length: ' + str(len(frame)).encode() + b'\r\n\r\n' + frame + b'\r\n')
 
 @app.route('/api/stream/ptak/mjpeg')
 def stream_ptak_mjpeg():
@@ -442,12 +451,16 @@ def gen_ptak_camera_frames():
         if ptak_camera_frame_event.wait(timeout=1.0):
             ptak_camera_frame_event.clear()
             if latest_ptak_camera_frame:
+                frame = latest_ptak_camera_frame
                 yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + latest_ptak_camera_frame + b'\r\n')
+                       b'Content-Type: image/jpeg\r\n'
+                       b'Content-Length: ' + str(len(frame)).encode() + b'\r\n\r\n' + frame + b'\r\n')
         else:
             if latest_ptak_camera_frame:
+                frame = latest_ptak_camera_frame
                 yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + latest_ptak_camera_frame + b'\r\n')
+                       b'Content-Type: image/jpeg\r\n'
+                       b'Content-Length: ' + str(len(frame)).encode() + b'\r\n\r\n' + frame + b'\r\n')
 
 @app.route('/api/stream/ptak/camera/mjpeg')
 def stream_ptak_camera_mjpeg():
@@ -632,6 +645,32 @@ def add_score():
         conn.close()
         
         return jsonify({'status': 'success', 'id': score_id}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/scores/<int:score_id>', methods=['DELETE'])
+def delete_score(score_id):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        # Opcjonalnie usuń przypisany plik wideo
+        c.execute('SELECT video_path FROM scores WHERE id = ?', (score_id,))
+        row = c.fetchone()
+        if row and row[0]:
+            filename = os.path.basename(row[0])
+            path = os.path.join(UPLOAD_FOLDER, filename)
+            if os.path.exists(path):
+                try:
+                    os.remove(path)
+                except Exception as e:
+                    print(f"Error deleting video file: {e}")
+                
+        c.execute('DELETE FROM scores WHERE id = ?', (score_id,))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'status': 'deleted'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
