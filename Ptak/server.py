@@ -10,6 +10,7 @@ import uuid
 
 app = Flask(__name__, static_folder=None)
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB max per frame (720p JPEG)
 
 # Konfiguracja bazy danych
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -53,12 +54,124 @@ ptak_frame_event = threading.Event()
 latest_ptak_camera_frame = None
 ptak_camera_frame_event = threading.Event()
 
+# -----------------------------------------------------------------------
+# SSL CERTIFICATE (persistent self-signed - browser remembers it)
+# -----------------------------------------------------------------------
+SSL_CERT = os.path.join(BASE_DIR, 'ssl_cert.pem')
+SSL_KEY  = os.path.join(BASE_DIR, 'ssl_key.pem')
+
+def ensure_ssl_cert():
+    """Generate a persistent self-signed certificate if it doesn't exist.
+    Using a stable cert means the browser only asks for trust once."""
+    if os.path.exists(SSL_CERT) and os.path.exists(SSL_KEY):
+        return (SSL_CERT, SSL_KEY)
+    print("[SSL] Generating persistent self-signed certificate...")
+    try:
+        subprocess.run([
+            'openssl', 'req', '-x509', '-newkey', 'rsa:2048',
+            '-keyout', SSL_KEY,
+            '-out',    SSL_CERT,
+            '-days',   '3650',
+            '-nodes',
+            '-subj',   '/CN=targi-server/O=Targi/C=PL',
+            '-addext', 'subjectAltName=IP:192.168.55.101,IP:127.0.0.1,DNS:localhost'
+        ], check=True, capture_output=True)
+        print(f"[SSL] Certificate saved to {SSL_CERT}")
+        return (SSL_CERT, SSL_KEY)
+    except Exception as e:
+        print(f"[SSL] openssl failed: {e} – falling back to adhoc cert")
+        return 'adhoc'
+
+# -----------------------------------------------------------------------
+# HARDWARE ACCELERATION DETECTION (VAAPI on Debian/Intel/AMD)
+# -----------------------------------------------------------------------
+def detect_ffmpeg_encoder():
+    """Prefer VAAPI (Intel/AMD GPU on Debian), fallback to libx264."""
+    try:
+        result = subprocess.run(
+            ['ffmpeg', '-hide_banner', '-encoders'],
+            capture_output=True, text=True, timeout=5
+        )
+        encoders = result.stdout + result.stderr
+
+        # Check for VAAPI device
+        vaapi_device = '/dev/dri/renderD128'
+        has_vaapi_dev = os.path.exists(vaapi_device)
+        has_vaapi_enc = 'h264_vaapi' in encoders
+
+        if has_vaapi_dev and has_vaapi_enc:
+            print(f"[FFmpeg] Using VAAPI hardware encoder ({vaapi_device})")
+            return 'vaapi'
+
+        # NVENC (NVIDIA)
+        if 'h264_nvenc' in encoders:
+            print("[FFmpeg] Using NVENC hardware encoder")
+            return 'nvenc'
+
+        print("[FFmpeg] Using software libx264 encoder (no GPU acceleration found)")
+        return 'software'
+    except Exception as e:
+        print(f"[FFmpeg] Detection failed: {e} – using software encoder")
+        return 'software'
+
+FFMPEG_ENCODER = detect_ffmpeg_encoder()
+
 # --- STREAM RECORDER ---
 class StreamRecorder:
     def __init__(self):
         self.proc = None
         self.lock = threading.Lock()
         self.current_file = None
+
+    def _build_cmd(self, filepath):
+        """Build FFmpeg command optimized for the detected encoder.
+        Input: MJPEG frames at 60fps via stdin.
+        Output: H.264 MP4 compatible with Windows 10 Chrome/Edge/VLC."""
+
+        base = [
+            'ffmpeg', '-y',
+            '-f', 'image2pipe',
+            '-vcodec', 'mjpeg',
+            '-r', '60',          # 60fps input (matches camera stream rate)
+            '-i', '-',
+        ]
+
+        if FFMPEG_ENCODER == 'vaapi':
+            # VAAPI: GPU-accelerated encoding on Intel/AMD (Debian)
+            # Upload frames to GPU, encode H.264, download result
+            encode = [
+                '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2,format=nv12,hwupload',
+                '-c:v', 'h264_vaapi',
+                '-vaapi_device', '/dev/dri/renderD128',
+                '-qp', '22',             # Quality: 0=lossless, 51=worst (22 ≈ high quality)
+                '-profile:v', 'main',    # H.264 Main Profile – Windows 10 compatible
+            ]
+        elif FFMPEG_ENCODER == 'nvenc':
+            encode = [
+                '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
+                '-c:v', 'h264_nvenc',
+                '-preset', 'p4',
+                '-cq', '22',
+                '-profile:v', 'main',
+            ]
+        else:
+            # Software libx264 – universally compatible
+            encode = [
+                '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
+                '-c:v', 'libx264',
+                '-preset', 'ultrafast',  # Min CPU load on server
+                '-crf', '20',            # Good quality
+                '-profile:v', 'baseline', # Max Win10 browser compat
+                '-level', '4.0',
+            ]
+
+        output = [
+            '-pix_fmt', 'yuv420p',       # Required for all players
+            '-movflags', '+faststart',   # MP4 header at front – instant stream/play on Win10
+            filepath
+        ]
+
+        return base + encode + output
 
     def start(self, filename):
         with self.lock:
@@ -67,48 +180,31 @@ class StreamRecorder:
             
             self.current_file = filename
             filepath = os.path.join(UPLOAD_FOLDER, filename)
-            
-            # FFmpeg command to read MJPEG from pipe and write MP4
-            # -f image2pipe: Input format
-            # -vcodec mjpeg: Input codec
-            # -r 25: Assume 25 FPS (matches client interval)
-            # -i -: Read from stdin
-            # -c:v libx264: Output codec
-            # -preset ultrafast: Low CPU usage
-            # -pix_fmt yuv420p: Compatibility
-            cmd = [
-                'ffmpeg', '-y', 
-                '-f', 'image2pipe', 
-                '-vcodec', 'mjpeg', 
-                '-r', '25', 
-                '-i', '-', 
-                '-c:v', 'libx264', 
-                '-preset', 'ultrafast', 
-                '-pix_fmt', 'yuv420p', 
-                filepath
-            ]
+            cmd = self._build_cmd(filepath)
             
             try:
-                self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
-                print(f"Recording started: {filepath}")
+                self.proc = subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    # Increase pipe buffer on Linux for smoother 60fps ingest
+                    bufsize=4 * 1024 * 1024  # 4 MB pipe buffer
+                )
+                print(f"[Recorder] Started: {filepath} (encoder: {FFMPEG_ENCODER})")
+            except FileNotFoundError:
+                print("[Recorder] ERROR: ffmpeg not found! Install with: sudo apt install ffmpeg")
             except Exception as e:
-                print(f"Failed to start recording: {e}")
+                print(f"[Recorder] Failed to start: {e}")
 
     def write(self, frame_data):
-        # Write frame to FFmpeg stdin
-        # Only write if process is running
         if self.proc and self.proc.stdin:
             try:
-                # Use a separate thread or non-blocking write if possible, 
-                # but for now we trust OS pipe buffer.
-                # Just catch broken pipe errors to avoid crashing server.
                 self.proc.stdin.write(frame_data)
                 self.proc.stdin.flush()
             except BrokenPipeError:
-                print("Recording pipe broken, stopping.")
+                print("[Recorder] Pipe broken, stopping recorder.")
                 self.stop()
-            except Exception as e:
-                # Ignore other errors during write to avoid spamming logs or crashing
+            except Exception:
                 pass
 
     def stop(self):
@@ -117,14 +213,18 @@ class StreamRecorder:
                 try:
                     if self.proc.stdin:
                         self.proc.stdin.close()
-                    self.proc.wait(timeout=2)
+                    self.proc.wait(timeout=5)  # Wait up to 5s for FFmpeg to finalize
+                except subprocess.TimeoutExpired:
+                    print("[Recorder] FFmpeg timeout – killing process")
+                    self.proc.kill()
+                    self.proc.wait()
                 except Exception as e:
-                    print(f"Error stopping recording: {e}")
+                    print(f"[Recorder] Stop error: {e}")
                     if self.proc:
                         self.proc.kill()
                 
                 self.proc = None
-                print("Recording stopped")
+                print(f"[Recorder] Stopped, file saved: {self.current_file}")
                 return self.current_file
             return None
 
@@ -177,7 +277,10 @@ def dashboard_page():
 
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
+    response = send_from_directory(UPLOAD_FOLDER, filename)
+    # Allow Windows 10 leaderboard to load videos cross-origin
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 @app.route('/static/js/<path:filename>')
 def serve_js(filename):
@@ -261,20 +364,21 @@ def update_snake_frame():
 
 def gen_snake_frames():
     while True:
-        if snake_frame_event.wait(timeout=1.0): # Wait for new frame
+        if snake_frame_event.wait(timeout=1.0):
             snake_frame_event.clear()
             if latest_snake_frame:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + latest_snake_frame + b'\r\n')
         else:
-            # Send keepalive or last frame if timeout
             if latest_snake_frame:
                  yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + latest_snake_frame + b'\r\n')
 
 @app.route('/api/stream/snake/mjpeg')
 def stream_snake_mjpeg():
-    return Response(gen_snake_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    response = Response(gen_snake_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    _apply_stream_headers(response)
+    return response
 
 
 @app.route('/api/stream/ptak', methods=['POST'])
@@ -300,7 +404,9 @@ def gen_ptak_frames():
 
 @app.route('/api/stream/ptak/mjpeg')
 def stream_ptak_mjpeg():
-    return Response(gen_ptak_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    response = Response(gen_ptak_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    _apply_stream_headers(response)
+    return response
 
 
 @app.route('/api/stream/ptak/camera', methods=['POST'])
@@ -330,7 +436,17 @@ def gen_ptak_camera_frames():
 
 @app.route('/api/stream/ptak/camera/mjpeg')
 def stream_ptak_camera_mjpeg():
-    return Response(gen_ptak_camera_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    response = Response(gen_ptak_camera_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    _apply_stream_headers(response)
+    return response
+
+def _apply_stream_headers(response):
+    """Headers that ensure smooth MJPEG delivery to Chromium (Debian) and Chrome/Edge (Win10)."""
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'  # Disable nginx buffering if behind proxy
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 
 # --- API dla Nagrywania (New) ---
@@ -536,11 +652,13 @@ if __name__ == '__main__':
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     
     init_db()
+    ssl_ctx = ensure_ssl_cert()
+    
     print("===============================================================")
     print(" SERWER GRY URUCHOMIONY (HTTPS)")
-    print(" Gra dostepna pod adresem: https://192.168.55.101:5001")
-    print(" Leaderboard dostepny pod adresem: https://192.168.55.101:5001/leaderboard")
-    print(" Dashboard dostepny pod adresem: https://192.168.55.101:5001/dashboard")
+    print(" Gra:         https://192.168.55.101:5001")
+    print(" Leaderboard: https://192.168.55.101:5001/leaderboard")
+    print(" Dashboard:   https://192.168.55.101:5001/dashboard")
+    print(f" FFmpeg encoder: {FFMPEG_ENCODER}")
     print("===============================================================")
-    # Uzywamy ssl_context='adhoc' dla HTTPS (wymaga pyopenssl)
-    app.run(host='0.0.0.0', port=5001, threaded=True, ssl_context='adhoc')
+    app.run(host='0.0.0.0', port=5001, threaded=True, ssl_context=ssl_ctx)

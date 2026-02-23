@@ -1,71 +1,71 @@
-
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
   <title>Flappy Bird</title>
 
-      <!-- Primary Meta Tags -->
-    <meta name="title" content="Wingman">
-    <meta name="description" content="flap your arms to fly">
+  <!-- Primary Meta Tags -->
+  <meta name="title" content="Wingman">
+  <meta name="description" content="flap your arms to fly">
 
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://funwithcomputervision.com/wingman/">
-    <meta property="og:title" content="Wingman">
-    <meta property="og:description" content="flap your arms to fly">
-    <meta property="og:image" content="https://funwithcomputervision.com/assets/wingman.png">
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://funwithcomputervision.com/wingman/">
+  <meta property="og:title" content="Wingman">
+  <meta property="og:description" content="flap your arms to fly">
+  <meta property="og:image" content="https://funwithcomputervision.com/assets/wingman.png">
 
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://funwithcomputervision.com/wingman/">
-    <meta property="twitter:title" content="Wingman">
-    <meta property="twitter:description" content="flap your arms to fly">
-    <meta property="twitter:image" content="https://funwithcomputervision.com/assets/wingman.png">
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="https://funwithcomputervision.com/wingman/">
+  <meta property="twitter:title" content="Wingman">
+  <meta property="twitter:description" content="flap your arms to fly">
+  <meta property="twitter:image" content="https://funwithcomputervision.com/assets/wingman.png">
 
-    <script defer src="/static/js/umami.js" data-website-id="376d8af4-cd09-461a-9ca9-f5eeed83e857"></script>
-  
+  <script defer src="/static/js/umami.js" data-website-id="376d8af4-cd09-461a-9ca9-f5eeed83e857"></script>
+
   <!-- Tailwind CSS -->
   <script src="/static/js/tailwindcss.js"></script>
-  
+
   <!-- Google Fonts: Pixel Art Font -->
   <link href="/static/css/fonts.css" rel="stylesheet">
-  
+
   <!-- Three.js -->
   <script src="/static/js/three.min.js"></script>
-  
+
   <!-- MediaPipe Dependencies -->
   <script src="/static/js/camera_utils.js" crossorigin="anonymous"></script>
   <script src="/static/js/control_utils.js" crossorigin="anonymous"></script>
   <script src="/static/js/drawing_utils.js" crossorigin="anonymous"></script>
   <script src="/static/js/pose.js" crossorigin="anonymous"></script>
-  
+
   <!-- Tone.js for Audio -->
   <script src="/static/js/Tone.js"></script>
-  
+
   <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
-    
+
     body {
       overflow: hidden;
       background-color: #000;
       font-family: sans-serif;
       user-select: none;
     }
-    
+
     canvas {
       display: block;
     }
-    
+
     .font-retro {
       font-family: 'Press Start 2P', cursive;
     }
-    
+
     /* Main Container */
     .app-container {
       width: 100vw;
@@ -74,13 +74,13 @@
       flex-direction: row;
       overflow: hidden;
     }
-    
+
     @media (max-width: 768px) {
       .app-container {
         flex-direction: column;
       }
     }
-    
+
     /* Left Panel - Camera */
     .camera-panel {
       width: 50%;
@@ -89,7 +89,7 @@
       border-right: 1px solid #1f2937;
       background-color: #111827;
     }
-    
+
     @media (max-width: 768px) {
       .camera-panel {
         width: 100%;
@@ -98,7 +98,7 @@
         border-bottom: 1px solid #1f2937;
       }
     }
-    
+
     .camera-container {
       position: relative;
       width: 100%;
@@ -109,7 +109,7 @@
       align-items: center;
       justify-content: center;
     }
-    
+
     #video {
       position: absolute;
       top: 0;
@@ -120,7 +120,7 @@
       transform: scaleX(-1);
       opacity: 0;
     }
-    
+
     #poseCanvas {
       position: absolute;
       top: 0;
@@ -130,7 +130,7 @@
       object-fit: cover;
       transform: scaleX(-1);
     }
-    
+
     .camera-offline {
       position: absolute;
       inset: 0;
@@ -140,7 +140,7 @@
       color: #4b5563;
       font-size: 0.75rem;
     }
-    
+
     .loading-overlay {
       position: absolute;
       inset: 0;
@@ -150,18 +150,25 @@
       background-color: rgba(0, 0, 0, 0.8);
       z-index: 20;
     }
-    
+
     .loading-text {
       color: #22d3ee;
       font-family: monospace;
       animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
-    
+
     @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
     }
-    
+
     .camera-error {
       position: absolute;
       inset: 0;
@@ -173,7 +180,7 @@
       padding: 2rem;
       text-align: center;
     }
-    
+
     .instructions-overlay {
       position: absolute;
       bottom: 0.5rem;
@@ -185,7 +192,7 @@
       z-index: 10;
       pointer-events: none;
     }
-    
+
     .instructions-content {
       display: flex;
       align-items: center;
@@ -195,16 +202,21 @@
       color: white;
       letter-spacing: 0.05em;
     }
-    
+
     .status-dot {
       width: 0.5rem;
       height: 0.5rem;
       border-radius: 50%;
     }
-    
-    .dot-cyan { background-color: #22d3ee; }
-    .dot-red { background-color: #ef4444; }
-    
+
+    .dot-cyan {
+      background-color: #22d3ee;
+    }
+
+    .dot-red {
+      background-color: #ef4444;
+    }
+
     /* Right Panel - Game */
     .game-panel {
       width: 50%;
@@ -212,20 +224,20 @@
       position: relative;
       background-color: black;
     }
-    
+
     @media (max-width: 768px) {
       .game-panel {
         width: 100%;
         height: 50%;
       }
     }
-    
+
     #gameContainer {
       width: 100%;
       height: 100%;
       background-color: black;
     }
-    
+
     /* HUD Overlay */
     .hud-overlay {
       position: absolute;
@@ -241,7 +253,7 @@
       padding: 1rem;
       z-index: 20;
     }
-    
+
     .score-display {
       font-size: 3rem;
       color: white;
@@ -258,11 +270,11 @@
       top: 10px;
       left: 10px;
       font-size: 20px;
-      
+
       /*backdrop-filter: blur(12px);*/
       padding: 10px;
       text-align: center;
-      
+
       z-index: 30;
       width: 120px;
       pointer-events: all !important;
@@ -271,13 +283,13 @@
     a {
       color: blue !important;
     }
-    
+
     @media (min-width: 768px) {
       .score-display {
         font-size: 5rem;
       }
     }
-    
+
     /* Start Screen */
     .start-screen {
       display: flex;
@@ -286,7 +298,7 @@
       justify-content: center;
       height: 100%;
     }
-    
+
     .start-panel {
       background-color: rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(12px);
@@ -295,7 +307,7 @@
       border: 4px solid white;
       pointer-events: auto;
     }
-    
+
     .game-title {
       font-size: 2.5rem;
       color: #22d3ee;
@@ -303,13 +315,13 @@
       letter-spacing: -0.025em;
       text-shadow: 4px 4px 0px #000;
     }
-    
+
     @media (min-width: 768px) {
       .game-title {
         font-size: 3rem;
       }
     }
-    
+
     .game-subtitle {
       color: white;
       font-size: 0.75rem;
@@ -317,33 +329,33 @@
       letter-spacing: 0.1em;
       opacity: 0.8;
     }
-    
+
     @media (min-width: 768px) {
       .game-subtitle {
         font-size: 0.875rem;
       }
     }
-    
+
     .init-section {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 1.5rem;
     }
-    
+
     .init-instructions {
       color: #d1d5db;
       font-size: 0.625rem;
       max-width: 16rem;
       line-height: 1.6;
     }
-    
+
     @media (min-width: 768px) {
       .init-instructions {
         font-size: 0.75rem;
       }
     }
-    
+
     .start-button {
       background-color: #dc2626;
       color: white;
@@ -355,18 +367,18 @@
       transition: all 0.2s;
       box-shadow: 0 0 20px rgba(220, 38, 38, 0.5);
     }
-    
+
     @media (min-width: 768px) {
       .start-button {
         font-size: 1.5rem;
       }
     }
-    
+
     .start-button:hover {
       background-color: #ef4444;
       transform: scale(1.05);
     }
-    
+
     .ready-section {
       display: flex;
       flex-direction: column;
@@ -374,36 +386,40 @@
       gap: 1rem;
       animation: fadeInUp 0.5s ease-out;
     }
-    
+
     @keyframes fadeInUp {
       from {
         opacity: 0;
         transform: translateY(20px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
       }
     }
-    
+
     .ready-text {
       color: #facc15;
       font-size: 0.875rem;
       animation: bounce 1s infinite;
       margin-bottom: 0.5rem;
     }
-    
+
     @keyframes bounce {
-      0%, 100% {
+
+      0%,
+      100% {
         transform: translateY(-25%);
         animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
       }
+
       50% {
         transform: translateY(0);
         animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
       }
     }
-    
+
     .takeoff-panel {
       background: linear-gradient(to right, #06b6d4, #2563eb);
       padding: 1.5rem 2.5rem;
@@ -411,20 +427,20 @@
       box-shadow: 0 0 30px rgba(6, 182, 212, 0.6);
       animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
-    
+
     .takeoff-text {
       color: white;
       font-size: 1rem;
       font-weight: bold;
       letter-spacing: 0.05em;
     }
-    
+
     @media (min-width: 768px) {
       .takeoff-text {
         font-size: 1.25rem;
       }
     }
-    
+
     /* Game Over Screen */
     .game-over-panel {
       position: absolute;
@@ -439,42 +455,42 @@
       pointer-events: auto;
       box-shadow: 0 0 50px rgba(255, 0, 0, 0.5);
     }
-    
+
     .game-over-title {
       font-size: 2rem;
       color: white;
       margin-bottom: 1rem;
       text-shadow: 4px 4px 0px #000;
     }
-    
+
     @media (min-width: 768px) {
       .game-over-title {
         font-size: 3rem;
       }
     }
-    
+
     .final-score-section {
       margin-bottom: 2rem;
     }
-    
+
     .final-score-label {
       color: #ffffff;
       font-size: 1.2rem;
       margin-bottom: 0.5rem;
     }
-    
+
     .final-score-value {
       font-size: 4rem;
       color: #ffd500;
       text-shadow: 4px 4px 0px rgba(0, 0, 0, 0.8);
     }
-    
+
     @media (min-width: 768px) {
       .final-score-value {
         font-size: 5rem;
       }
     }
-    
+
     .restart-section {
       display: flex;
       flex-direction: column;
@@ -483,14 +499,14 @@
       min-height: 80px;
       justify-content: center;
     }
-    
+
     .recharging-container {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 0.5rem;
     }
-    
+
     .spinner {
       width: 2rem;
       height: 2rem;
@@ -499,16 +515,18 @@
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
-    
+
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
-    
+
     .recharging-text {
       font-size: 0.75rem;
       color: rgba(255, 255, 255, 0.7);
     }
-    
+
     .restart-button {
       background-color: white;
       color: black;
@@ -519,18 +537,18 @@
       transition: all 0.2s;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
-    
+
     .restart-button:hover {
       background-color: #facc15;
       transform: scale(1.05);
     }
-    
+
     .flap-hint {
       font-size: 0.625rem;
       color: rgba(255, 255, 255, 0.7);
       animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
-    
+
     .hidden {
       display: none !important;
     }
@@ -570,7 +588,7 @@
       display: flex;
       justify-content: space-between;
       margin-bottom: 0.5rem;
-      border-bottom: 1px dashed rgba(255,255,255,0.3);
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.3);
       padding-bottom: 2px;
     }
 
@@ -602,37 +620,38 @@
       padding: 10px 20px;
       transition: all 0.2s;
     }
-    
+
     #submitNameButton:hover {
       background-color: #06b6d4;
       transform: scale(1.05);
     }
   </style>
 </head>
+
 <body>
   <div class="app-container">
-    
+
     <!-- Left Panel: Camera & Pose -->
     <div class="camera-panel">
       <div class="camera-container">
         <video id="video" playsinline></video>
         <canvas id="poseCanvas"></canvas>
-        
+
         <!-- Camera Offline Placeholder -->
         <div id="cameraOffline" class="camera-offline font-retro">
           CAMERA OFFLINE (Check Device Camera)
         </div>
-        
+
         <!-- Loading Overlay -->
         <div id="loadingOverlay" class="loading-overlay hidden">
           <p class="loading-text">Starting Device Camera...</p>
         </div>
-        
+
         <!-- Camera Error -->
         <div id="cameraError" class="camera-error hidden">
           <p class="text-white font-bold">Access to LOCAL DEVICE camera required.</p>
         </div>
-        
+
         <!-- Instructions Overlay -->
         <div id="instructionsOverlay" class="instructions-overlay hidden">
           <div class="instructions-content">
@@ -646,14 +665,14 @@
         </div>
       </div>
     </div>
-    
+
     <!-- Right Panel: Game Scene -->
     <div class="game-panel">
       <div id="gameContainer"></div>
-      
+
       <!-- HUD Overlay -->
       <div class="hud-overlay">
-        
+
         <!-- Leaderboard -->
         <div id="leaderboard" class="leaderboard-container font-retro">
           <h3>TOP SCORES</h3>
@@ -664,14 +683,14 @@
 
         <!-- Live Score -->
         <div id="liveScore" class="score-display font-retro hidden">0</div>
-        
+
         <div id="logo"><img src="https://zstib.edu.pl/page/graphics/logoShort.svg" alt=""></div>
 
         <!-- Start Screen -->
         <div id="startScreen" class="start-screen">
           <div class="start-panel">
             <h1 class="game-title font-retro">Flappy Bird</h1>
-            
+
             <!-- Pre-Init Section -->
             <div id="initSection" class="init-section">
 
@@ -679,12 +698,12 @@
                 START
               </button>
             </div>
-            
+
             <!-- Ready Section (shown after init) -->
             <div id="readySection" class="ready-section hidden">
               <!-- <p class="ready-text font-retro">SYSTEMS READY</p> -->
               <p class="init-instructions font-retro">
-                
+
               </p>
               <div class="takeoff-panel">
                 <p class="takeoff-text font-retro">Machaj rekami aby rozpocząć</p>
@@ -692,16 +711,16 @@
             </div>
           </div>
         </div>
-        
+
         <!-- Game Over Screen -->
         <div id="gameOverScreen" class="game-over-panel hidden">
           <h2 class="game-over-title font-retro">GAME OVER</h2>
-          
+
           <div class="final-score-section">
             <p class="final-score-label font-retro">WYNIK</p>
             <p id="finalScore" class="final-score-value font-retro">0</p>
           </div>
-          
+
           <div id="nameInputSection" class="name-input-section hidden">
             <p class="final-score-label font-retro" style="font-size: 0.8rem;">WPISZ IMIĘ:</p>
             <input type="text" id="playerNameInput" class="font-retro" maxlength="10">
@@ -714,19 +733,20 @@
               <div class="spinner"></div>
               <p class="recharging-text font-retro">...</p>
             </div>
-            
+
             <!-- Ready to Restart State -->
-            <div id="readyToRestartState" class="hidden" style="display: flex; flex-direction: column; align-items: center; gap: 1.5rem;">
+            <div id="readyToRestartState" class="hidden"
+              style="display: flex; flex-direction: column; align-items: center; gap: 1.5rem;">
               <button id="restartButton" class="restart-button font-retro">
                 MACHNIJ ABY ROZPOCZĄĆ
               </button>
             </div>
           </div>
         </div>
-        
+
       </div>
     </div>
-    
+
   </div>
 
   <script>
@@ -748,7 +768,7 @@
 
     // Media Recording State
     let gameStartTime = 0;
-    
+
     // Inactivity Timer
     let inactivityTimer = null;
     const INACTIVITY_TIMEOUT = 10000; // 10 seconds
@@ -756,100 +776,106 @@
     // ==========================================
     // SCREEN STREAMING (For Dashboard Live Preview)
     // ========================================== 
-    
+
     // Hidden Canvases for Resizing
     const gameStreamCanvas = document.createElement('canvas');
     const gameStreamCtx = gameStreamCanvas.getContext('2d');
     const cameraStreamCanvas = document.createElement('canvas');
     const cameraStreamCtx = cameraStreamCanvas.getContext('2d');
-    
-    // Target resolution for stream (1:1 Square)
-    const STREAM_WIDTH = 720;
-    const STREAM_HEIGHT = 720; 
 
-    gameStreamCanvas.width = STREAM_WIDTH;
-    gameStreamCanvas.height = STREAM_HEIGHT;
-    cameraStreamCanvas.width = STREAM_WIDTH;
-    cameraStreamCanvas.height = STREAM_HEIGHT;
+    // Target resolution for stream - 720p (1280x720) for high quality live preview
+    // Camera stream: 1280x720 (16:9 widescreen)
+    const CAMERA_STREAM_WIDTH = 1280;
+    const CAMERA_STREAM_HEIGHT = 720;
+    // Game stream: keep reasonable for smooth delivery
+    const GAME_STREAM_WIDTH = 854;
+    const GAME_STREAM_HEIGHT = 480;
+
+    gameStreamCanvas.width = GAME_STREAM_WIDTH;
+    gameStreamCanvas.height = GAME_STREAM_HEIGHT;
+    cameraStreamCanvas.width = CAMERA_STREAM_WIDTH;
+    cameraStreamCanvas.height = CAMERA_STREAM_HEIGHT;
 
     let gameBusy = { value: false };
     let cameraBusy = { value: false };
 
-    function sendFrame(sourceCanvas, targetCanvas, targetCtx, url, busyRef) {
-        if (busyRef.value) return;
-        if (!sourceCanvas || sourceCanvas.width === 0 || sourceCanvas.height === 0) return;
+    function sendFrame(sourceCanvas, targetCanvas, targetCtx, url, busyRef, quality = 0.82) {
+      if (busyRef.value) return;
+      if (!sourceCanvas || sourceCanvas.width === 0 || sourceCanvas.height === 0) return;
 
-        busyRef.value = true;
-        
-        try {
-            // Smart Resize (Cover / Crop) to fill screen without distortion
-            const sw = sourceCanvas.width;
-            const sh = sourceCanvas.height;
-            const tw = targetCanvas.width;
-            const th = targetCanvas.height;
-            
-            // Calculate scale to COVER target (zoom in to fill)
-            const scale = Math.max(tw / sw, th / sh);
-            const w = sw * scale;
-            const h = sh * scale;
-            
-            // Center crop
-            const x = (tw - w) / 2;
-            const y = (th - h) / 2;
+      busyRef.value = true;
 
-            // Clear (not needed for cover but good practice)
-            // targetCtx.fillStyle = '#000000';
-            // targetCtx.fillRect(0, 0, tw, th);
-            
-            // Draw scaled image centered (cropping excess)
-            targetCtx.drawImage(sourceCanvas, 0, 0, sw, sh, x, y, w, h);
-            
-            targetCanvas.toBlob((blob) => {
-                if (!blob) {
-                    busyRef.value = false;
-                    return;
-                }
-                
-                fetch(url, {
-                    method: 'POST',
-                    body: blob,
-                    headers: { 'Content-Type': 'image/jpeg' }
-                })
-                .then(() => { busyRef.value = false; })
-                .catch(e => { 
-                    // console.error("Stream error", e); 
-                    busyRef.value = false; 
-                });
-                
-            }, 'image/jpeg', 0.7); // 70% quality
-        } catch(e) {
-            console.error("Canvas draw error", e);
+      try {
+        // Smart Resize (Cover / Crop) to fill screen without distortion
+        const sw = sourceCanvas.width;
+        const sh = sourceCanvas.height;
+        const tw = targetCanvas.width;
+        const th = targetCanvas.height;
+
+        // Calculate scale to COVER target (zoom in to fill)
+        const scale = Math.max(tw / sw, th / sh);
+        const w = sw * scale;
+        const h = sh * scale;
+
+        // Center crop
+        const x = (tw - w) / 2;
+        const y = (th - h) / 2;
+
+        // Clear (not needed for cover but good practice)
+        // targetCtx.fillStyle = '#000000';
+        // targetCtx.fillRect(0, 0, tw, th);
+
+        // Draw scaled image centered (cropping excess)
+        targetCtx.drawImage(sourceCanvas, 0, 0, sw, sh, x, y, w, h);
+
+        targetCanvas.toBlob((blob) => {
+          if (!blob) {
             busyRef.value = false;
-        }
+            return;
+          }
+
+          fetch(url, {
+            method: 'POST',
+            body: blob,
+            headers: { 'Content-Type': 'image/jpeg' }
+          })
+            .then(() => { busyRef.value = false; })
+            .catch(e => {
+              // console.error("Stream error", e); 
+              busyRef.value = false;
+            });
+
+        }, 'image/jpeg', quality);
+      } catch (e) {
+        console.error("Canvas draw error", e);
+        busyRef.value = false;
+      }
     }
 
     let lastStreamTime = 0;
-    const STREAM_INTERVAL = 33; // ~30 FPS
+    const GAME_STREAM_INTERVAL = 33;   // ~30 FPS for game view (lighter)
+    const CAMERA_STREAM_INTERVAL = 16; // ~60 FPS for camera (high quality)
 
     function streamGameLoop() {
-        if (renderer && renderer.domElement) {
-            sendFrame(renderer.domElement, gameStreamCanvas, gameStreamCtx, '/api/stream/ptak', gameBusy);
-        }
-        setTimeout(streamGameLoop, STREAM_INTERVAL);
+      if (renderer && renderer.domElement) {
+        sendFrame(renderer.domElement, gameStreamCanvas, gameStreamCtx, '/api/stream/ptak', gameBusy, 0.75);
+      }
+      setTimeout(streamGameLoop, GAME_STREAM_INTERVAL);
     }
 
     function streamCameraLoop() {
-        const poseCanvas = document.getElementById('poseCanvas');
-        if (poseCanvas) {
-             sendFrame(poseCanvas, cameraStreamCanvas, cameraStreamCtx, '/api/stream/ptak/camera', cameraBusy);
-        }
-        setTimeout(streamCameraLoop, STREAM_INTERVAL);
+      const poseCanvas = document.getElementById('poseCanvas');
+      if (poseCanvas) {
+        // Send camera frames at 60fps with high quality for recording & live preview
+        sendFrame(poseCanvas, cameraStreamCanvas, cameraStreamCtx, '/api/stream/ptak/camera', cameraBusy, 0.82);
+      }
+      setTimeout(streamCameraLoop, CAMERA_STREAM_INTERVAL);
     }
 
     // Start loops with a slight delay
     setTimeout(() => {
-        streamGameLoop();
-        streamCameraLoop();
+      streamGameLoop();
+      streamCameraLoop();
     }, 2000);
 
     // ==========================================
@@ -858,26 +884,26 @@
     let lastLandmarks = null;
 
     function broadcastState() {
-        // Prepare data
-        const state = {
-            player_y: player ? player.y : 25,
-            score: score,
-            is_playing: gameState === GameState.PLAYING,
-            game_state: gameState, // 'START', 'PLAYING', 'GAME_OVER'
-            pipes: pipes.map(p => ({
-                z: p.position.z,
-                gapY: p.userData.gapY,
-                gapHeight: p.userData.gapHeight
-            })),
-            landmarks: lastLandmarks
-        };
+      // Prepare data
+      const state = {
+        player_y: player ? player.y : 25,
+        score: score,
+        is_playing: gameState === GameState.PLAYING,
+        game_state: gameState, // 'START', 'PLAYING', 'GAME_OVER'
+        pipes: pipes.map(p => ({
+          z: p.position.z,
+          gapY: p.userData.gapY,
+          gapHeight: p.userData.gapHeight
+        })),
+        landmarks: lastLandmarks
+      };
 
-        // Send to server (fire and forget, don't await to avoid lag)
-        fetch('/api/ptak/state', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(state)
-        }).catch(e => {}); // Ignore errors
+      // Send to server (fire and forget, don't await to avoid lag)
+      fetch('/api/ptak/state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state)
+      }).catch(e => { }); // Ignore errors
     }
 
     // Broadcast every 100ms (10 FPS)
@@ -890,7 +916,7 @@
       try {
         const response = await fetch('/api/scores?limit=5');
         if (!response.ok) throw new Error('Network response was not ok');
-        
+
         const data = await response.json();
         if (data) {
           leaderboard = data;
@@ -900,13 +926,13 @@
         console.error("Failed to load leaderboard from server", e);
         // Fallback to local storage if server is down
         try {
-            const stored = localStorage.getItem('wingman_leaderboard_fallback');
-            if (stored) {
-                leaderboard = JSON.parse(stored);
-                updateLeaderboardDisplay();
-            }
+          const stored = localStorage.getItem('wingman_leaderboard_fallback');
+          if (stored) {
+            leaderboard = JSON.parse(stored);
+            updateLeaderboardDisplay();
+          }
         } catch (localErr) {
-            console.error("Local fallback error", localErr);
+          console.error("Local fallback error", localErr);
         }
       }
     }
@@ -915,7 +941,7 @@
       const list = document.getElementById('leaderboardList');
       if (!list) return;
       list.innerHTML = '';
-      
+
       // Data from server is already sorted, but if we fallback to local...
       leaderboard.sort((a, b) => b.score - a.score);
 
@@ -934,59 +960,59 @@
     // SCORE SUBMISSION HELPER
     // ==========================================
     async function submitGameScore(playerName) {
-        const finalName = playerName || "ANON";
-        console.log(`Submitting score for ${finalName}: ${score}`);
-        
-        try {
-            // Ensure we have the filename
-            const recFilename = await getRecordingFilename();
-            
-            const response = await fetch('/api/scores', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    name: finalName, 
-                    score: score, 
-                    link_recording: true,
-                    recording_filename: recFilename
-                })
-            });
-            
-            if (response.ok) {
-                console.log("Score saved successfully");
-                loadLeaderboard();
-            } else {
-                console.error("Server returned error saving score");
-            }
-        } catch (e) {
-            console.error("Failed to save score:", e);
-            // Local fallback
-            leaderboard.push({ name: finalName, score: score });
-            try {
-                localStorage.setItem('wingman_leaderboard_fallback', JSON.stringify(leaderboard));
-            } catch(localErr) {}
-            updateLeaderboardDisplay();
+      const finalName = playerName || "ANON";
+      console.log(`Submitting score for ${finalName}: ${score}`);
+
+      try {
+        // Ensure we have the filename
+        const recFilename = await getRecordingFilename();
+
+        const response = await fetch('/api/scores', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: finalName,
+            score: score,
+            link_recording: true,
+            recording_filename: recFilename
+          })
+        });
+
+        if (response.ok) {
+          console.log("Score saved successfully");
+          loadLeaderboard();
+        } else {
+          console.error("Server returned error saving score");
         }
+      } catch (e) {
+        console.error("Failed to save score:", e);
+        // Local fallback
+        leaderboard.push({ name: finalName, score: score });
+        try {
+          localStorage.setItem('wingman_leaderboard_fallback', JSON.stringify(leaderboard));
+        } catch (localErr) { }
+        updateLeaderboardDisplay();
+      }
     }
 
     function setupRestartTimer() {
-        canRestart = false;
-        document.getElementById('rechargingState').style.display = 'flex';
-        
-        // Wait for cooldown before allowing restart
-        setTimeout(() => {
-            canRestart = true;
-            // Ensure logic in handleFlap passes check (simulated old game over time)
-            gameOverTime = Date.now() - 2500; 
-            updateGameOverUI();
-        }, 2000);
+      canRestart = false;
+      document.getElementById('rechargingState').style.display = 'flex';
+
+      // Wait for cooldown before allowing restart
+      setTimeout(() => {
+        canRestart = true;
+        // Ensure logic in handleFlap passes check (simulated old game over time)
+        gameOverTime = Date.now() - 2500;
+        updateGameOverUI();
+      }, 2000);
     }
 
     async function handleNameSubmit() {
       const input = document.getElementById('playerNameInput');
       const name = input.value.trim().toUpperCase();
       const submitBtn = document.getElementById('submitNameButton');
-      
+
       // Stop inactivity timer
       if (inactivityTimer) clearTimeout(inactivityTimer);
 
@@ -996,12 +1022,12 @@
 
       // Always save, even if name is empty (defaults to ANON in submitGameScore)
       await submitGameScore(name);
-      
+
       waitingForName = false;
-      input.value = ''; 
+      input.value = '';
       submitBtn.disabled = false;
       submitBtn.innerText = "ZAPISZ (ENTER)";
-      
+
       updateGameOverUI();
       setupRestartTimer();
     }
@@ -1015,19 +1041,19 @@
     async function startRecording() {
       try {
         recordingStartPromise = fetch('/api/recording/start', { method: 'POST' })
-            .then(r => r.json())
-            .then(data => {
-                if (data.status === 'started') {
-                    currentRecordingFilename = data.filename;
-                    console.log("Server recording started:", currentRecordingFilename);
-                    return data.filename;
-                }
-                return null;
-            })
-            .catch(e => {
-                console.error("Failed to start server recording", e);
-                return null;
-            });
+          .then(r => r.json())
+          .then(data => {
+            if (data.status === 'started') {
+              currentRecordingFilename = data.filename;
+              console.log("Server recording started:", currentRecordingFilename);
+              return data.filename;
+            }
+            return null;
+          })
+          .catch(e => {
+            console.error("Failed to start server recording", e);
+            return null;
+          });
       } catch (e) {
         console.error("Failed to initiate recording start", e);
       }
@@ -1035,24 +1061,27 @@
 
     async function stopRecording() {
       try {
-        await fetch('/api/recording/stop', { method: 'POST' });
-        console.log("Server recording stopped");
+        const res = await fetch('/api/recording/stop', { method: 'POST' });
+        const data = await res.json();
+        console.log("Server recording stopped:", data.filename);
+        // Give FFmpeg a moment to finalize the file
+        await new Promise(resolve => setTimeout(resolve, 800));
       } catch (e) {
         console.error("Failed to stop server recording", e);
       }
     }
-    
+
     async function getRecordingFilename() {
-        if (currentRecordingFilename) return currentRecordingFilename;
-        if (recordingStartPromise) {
-            return await recordingStartPromise;
-        }
-        return null;
+      if (currentRecordingFilename) return currentRecordingFilename;
+      if (recordingStartPromise) {
+        return await recordingStartPromise;
+      }
+      return null;
     }
 
     // Legacy client-side recording removed/disabled
     async function uploadMedia(scoreId) {
-        // No-op or handle images if needed
+      // No-op or handle images if needed
     }
 
     // ==========================================
@@ -1077,9 +1106,9 @@
 
       // Flap Sound: Soft Wind-like Whoosh
       flapSynth = new window.Tone.NoiseSynth({
-        noise: { 
+        noise: {
           type: "brown",
-          playbackRate: 1.0 
+          playbackRate: 1.0
         },
         envelope: {
           attack: 0.2,
@@ -1087,10 +1116,10 @@
           sustain: 0,
         }
       }).toDestination();
-      
+
       const flapFilter = new window.Tone.Filter(400, "lowpass").toDestination();
       flapSynth.connect(flapFilter);
-      flapSynth.volume.value = -8; 
+      flapSynth.volume.value = -8;
 
       // Score Sound: Softened Sine Waves
       scoreSynth = new window.Tone.PolySynth(window.Tone.Synth, {
@@ -1108,7 +1137,7 @@
 
       const scoreFilter = new window.Tone.Filter(9000, "lowpass").toDestination();
       const reverb = new window.Tone.Reverb({ decay: 2.0, wet: 0.5 }).toDestination();
-      
+
       scoreSynth.chain(scoreFilter, reverb);
       scoreSynth.volume.value = -15;
     }
@@ -1149,10 +1178,10 @@
       function onResults(results) {
         document.getElementById('loadingOverlay').classList.add('hidden');
         document.getElementById('instructionsOverlay').classList.remove('hidden');
-        
+
         // Save for broadcast
         if (results.poseLandmarks) {
-            lastLandmarks = results.poseLandmarks;
+          lastLandmarks = results.poseLandmarks;
         }
 
         canvasElement.width = videoElement.videoWidth;
@@ -1165,7 +1194,7 @@
         if (results.poseLandmarks) {
           const maskedLandmarks = results.poseLandmarks.map((lm, index) => {
             if (index < 11) {
-              return { x: 0, y: 0, z: 0, visibility: 0 }; 
+              return { x: 0, y: 0, z: 0, visibility: 0 };
             }
             return lm;
           });
@@ -1179,9 +1208,9 @@
             if (leftWrist.visibility > 0.5 && rightWrist.visibility > 0.5) {
               const wristsY = (leftWrist.y + rightWrist.y) / 2;
               const shouldersY = (leftShoulder.y + rightShoulder.y) / 2;
-              
-              const upThreshold = shouldersY + 0.05; 
-              const downThreshold = shouldersY + 0.1; 
+
+              const upThreshold = shouldersY + 0.05;
+              const downThreshold = shouldersY + 0.1;
 
               if (armState === 'DOWN' && wristsY < upThreshold) {
                 armState = 'UP';
@@ -1197,11 +1226,13 @@
 
           window.drawConnectors(canvasCtx, maskedLandmarks, window.POSE_CONNECTIONS,
             { color: stateColor, lineWidth: 4 });
-          
+
           window.drawLandmarks(canvasCtx, maskedLandmarks,
-            { color: landmarkColor, lineWidth: 2, radius: (data) => {
-              return data.index < 11 ? 0 : 4; 
-            }});
+            {
+              color: landmarkColor, lineWidth: 2, radius: (data) => {
+                return data.index < 11 ? 0 : 4;
+              }
+            });
         }
         canvasCtx.restore();
       }
@@ -1230,10 +1261,10 @@
         },
         width: 1280,
         height: 720,
-        frameRate: 60, // Request 60fps
+        frameRate: { ideal: 60, min: 30 }, // 720p @ 60fps
         facingMode: 'user' // Force front camera on mobile/tablet
       });
-      
+
       console.log("Initializing camera from local device...");
 
       cameraInstance.start()
@@ -1275,11 +1306,11 @@
     const PIPE_SPAWN_Z = -430;
 
     // Voxel Settings
-    const VOXEL_SIZE = 6; 
+    const VOXEL_SIZE = 6;
     const VOXEL_GEOMETRY_SIZE = 6.1;
     const TERRAIN_WIDTH = 50;
     const TERRAIN_DEPTH = 80;
-    const TERRAIN_START_Z = 20; 
+    const TERRAIN_START_Z = 20;
     const TERRAIN_FLOOR = -200;
 
     // Colors
@@ -1305,10 +1336,10 @@
       const warpX = x + Math.sin(z * 0.025) * 20;
       const warpZ = z + Math.sin(x * 0.025) * 20;
 
-      const h1 = Math.sin(warpX * 0.013 + warpZ * 0.017) * 25; 
-      const h2 = Math.sin(warpX * 0.04 - warpZ * 0.03) * 10;   
-      const h3 = Math.sin(warpX * 0.1 + warpZ * 0.1) * 3;      
-      
+      const h1 = Math.sin(warpX * 0.013 + warpZ * 0.017) * 25;
+      const h2 = Math.sin(warpX * 0.04 - warpZ * 0.03) * 10;
+      const h3 = Math.sin(warpX * 0.1 + warpZ * 0.1) * 3;
+
       return h1 + h2 + h3;
     }
 
@@ -1317,7 +1348,7 @@
       canvas.width = 2;
       canvas.height = 512;
       const context = canvas.getContext('2d');
-      if (!context) return new THREE.Color(0x87CEEB); 
+      if (!context) return new THREE.Color(0x87CEEB);
 
       const gradient = context.createLinearGradient(0, 0, 0, 512);
       gradient.addColorStop(0, '#6B5B95');
@@ -1327,7 +1358,7 @@
 
       context.fillStyle = gradient;
       context.fillRect(0, 0, 2, 512);
-      
+
       const texture = new THREE.CanvasTexture(canvas);
       texture.encoding = THREE.sRGBEncoding;
       return texture;
@@ -1352,7 +1383,7 @@
       for (let x = 0; x < TERRAIN_WIDTH; x++) {
         const xWorld = (x - TERRAIN_WIDTH / 2) * VOXEL_SIZE;
         const rawNoise = noise(xWorld, logicalZ);
-        let yHeight = -75 + rawNoise; 
+        let yHeight = -75 + rawNoise;
 
         const color = row.colors[x];
 
@@ -1370,9 +1401,9 @@
         } else {
           color.copy(COLOR_SNOW);
         }
-        
+
         row.heights[x] = yHeight;
-        
+
         if (terrainMesh) {
           terrainMesh.setColorAt(idx, color);
         }
@@ -1382,12 +1413,12 @@
 
     function updateRowMesh(row) {
       if (!terrainMesh) return;
-      
+
       let idx = row.meshIndex;
       for (let x = 0; x < TERRAIN_WIDTH; x++) {
         const xWorld = (x - TERRAIN_WIDTH / 2) * VOXEL_SIZE;
         const surfaceY = row.heights[x];
-        
+
         const totalHeight = surfaceY - TERRAIN_FLOOR;
         const scaleY = Math.max(0.1, totalHeight / VOXEL_GEOMETRY_SIZE);
         const centerY = (surfaceY + TERRAIN_FLOOR) / 2;
@@ -1405,20 +1436,20 @@
       if (!scene || !pipeGeometry || !rimGeometry || !pipeMaterialBase) return;
 
       const gapHeight = Math.max(18, 35 - score * 0.5);
-      
+
       const baseVariation = 20;
       const maxVariation = 60;
       const currentVariation = Math.min(maxVariation, baseVariation + score * 0.8);
-      
+
       const randomOffset = (Math.random() * 2 - 1) * currentVariation;
-      
+
       let gapY = 25 + randomOffset;
       gapY = Math.max(0, Math.min(90, gapY));
-      
+
       const neonColor = NEON_PALETTE[pipeIndex % NEON_PALETTE.length].clone();
       pipeIndex++;
 
-      const pipeHeight = 160; 
+      const pipeHeight = 160;
       const halfHeight = pipeHeight / 2;
 
       const material = pipeMaterialBase.clone();
@@ -1429,17 +1460,17 @@
       const topPipe = new THREE.Mesh(pipeGeometry, material);
       const bottomPipe = new THREE.Mesh(pipeGeometry, material);
 
-      topPipe.position.y = gapY + gapHeight / 2 + halfHeight; 
+      topPipe.position.y = gapY + gapHeight / 2 + halfHeight;
       bottomPipe.position.y = gapY - gapHeight / 2 - halfHeight;
 
-      const rimColor = neonColor.clone().multiplyScalar(0.4); 
+      const rimColor = neonColor.clone().multiplyScalar(0.4);
       const rimMat = pipeMaterialBase.clone();
       rimMat.color.copy(rimColor);
       rimMat.emissive.copy(rimColor);
       rimMat.emissiveIntensity = 0.3;
-      
+
       const topRim = new THREE.Mesh(rimGeometry, rimMat);
-      topRim.position.y = -halfHeight; 
+      topRim.position.y = -halfHeight;
       topPipe.add(topRim);
 
       const bottomRim = new THREE.Mesh(rimGeometry, rimMat);
@@ -1450,7 +1481,7 @@
       group.add(topPipe);
       group.add(bottomPipe);
       group.position.z = zPos;
-      
+
       group.userData = { passed: false, gapY, gapHeight, width: 9 * 2 };
 
       scene.add(group);
@@ -1468,9 +1499,9 @@
       player = { y: 25, velocity: 0 };
       score = 0;
       updateScoreDisplay();
-      spawnTimer = SPAWN_TIMER; 
-      pipeIndex = 0; 
-      
+      spawnTimer = SPAWN_TIMER;
+      pipeIndex = 0;
+
       // Reset Pipes
       if (scene) {
         pipes.forEach(p => {
@@ -1484,7 +1515,7 @@
           createPipe(-150 - (i * 70));
         }
       }
-      
+
       // Reset Camera
       if (camera) {
         camera.rotation.x = 0;
@@ -1496,15 +1527,15 @@
         for (let i = 0; i < TERRAIN_DEPTH; i++) {
           const zPos = TERRAIN_START_Z - (i * VOXEL_SIZE);
           const row = terrainRows[i];
-          
+
           row.z = zPos;
-          
+
           updateRowDataInPlace(row, zPos);
           updateRowMesh(row);
-          
+
           lastZ = zPos;
         }
-        
+
         furthestGenZ = lastZ;
 
         terrainMesh.instanceMatrix.needsUpdate = true;
@@ -1526,10 +1557,10 @@
       camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
 
       // Init Renderer
-      renderer = new THREE.WebGLRenderer({ 
-        antialias: true, 
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
         powerPreference: "high-performance",
-        preserveDrawingBuffer: true 
+        preserveDrawingBuffer: true
       });
       renderer.setSize(container.clientWidth, container.clientHeight);
       renderer.shadowMap.enabled = true;
@@ -1547,7 +1578,7 @@
       // Initialize Geometries
       pipeGeometry = new THREE.CylinderGeometry(9.0, 9.0, 160, 32);
       rimGeometry = new THREE.CylinderGeometry(10.0, 10.0, 4, 32);
-      pipeMaterialBase = new THREE.MeshStandardMaterial({ 
+      pipeMaterialBase = new THREE.MeshStandardMaterial({
         roughness: 0.1,
         metalness: 0.1
       });
@@ -1570,8 +1601,8 @@
       const geometry = new THREE.BoxGeometry(VOXEL_GEOMETRY_SIZE, VOXEL_GEOMETRY_SIZE, VOXEL_GEOMETRY_SIZE);
       const material = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0.1 });
       terrainMesh = new THREE.InstancedMesh(geometry, material, totalInstances);
-      
-      terrainMesh.frustumCulled = false; 
+
+      terrainMesh.frustumCulled = false;
       scene.add(terrainMesh);
 
       // Pre-compile shaders
@@ -1614,18 +1645,18 @@
         // Pipe Logic
         spawnTimer -= dt;
         if (spawnTimer <= 0) {
-          createPipe(PIPE_SPAWN_Z); 
+          createPipe(PIPE_SPAWN_Z);
           spawnTimer = SPAWN_TIMER;
         }
 
         for (let i = pipes.length - 1; i >= 0; i--) {
           const pipe = pipes[i];
-          pipe.position.z += worldSpeed * dt; 
+          pipe.position.z += worldSpeed * dt;
 
           if (pipe.position.z > -5.0 && pipe.position.z < 5.0) {
             const pipeData = pipe.userData;
             const playerRadius = 0.5;
-            
+
             const topLimit = pipeData.gapY + pipeData.gapHeight / 2 - playerRadius;
             const bottomLimit = pipeData.gapY - pipeData.gapHeight / 2 + playerRadius;
 
@@ -1654,7 +1685,7 @@
         if (terrainMesh) {
           const terrainLength = TERRAIN_DEPTH * VOXEL_SIZE;
           const recycleThreshold = TERRAIN_START_Z + VOXEL_SIZE;
-          
+
           let colorsDirty = false;
 
           terrainRows.forEach((row) => {
@@ -1666,10 +1697,10 @@
               updateRowDataInPlace(row, furthestGenZ);
               colorsDirty = true;
             }
-            
+
             updateRowMesh(row);
           });
-          
+
           terrainMesh.instanceMatrix.needsUpdate = true;
           if (colorsDirty && terrainMesh.instanceColor) {
             terrainMesh.instanceColor.needsUpdate = true;
@@ -1677,7 +1708,7 @@
         }
 
       } else if (gameState === GameState.START) {
-        player.y = 25 + Math.sin(time / 500) * 1; 
+        player.y = 25 + Math.sin(time / 500) * 1;
       }
 
       // Camera Logic
@@ -1686,22 +1717,22 @@
 
         // 1. Calculate Target Pitch (Look at next pipe gap)
         let targetPitch = 0;
-        
+
         let nextPipe = pipes.find(p => !p.userData.passed && p.position.z < 0);
-        
+
         if (nextPipe) {
           const deltaY = nextPipe.userData.gapY - player.y;
           const distZ = Math.abs(nextPipe.position.z);
-          
-          const effectiveDist = Math.max(distZ, 50); 
-          
+
+          const effectiveDist = Math.max(distZ, 50);
+
           targetPitch = -Math.atan2(deltaY, effectiveDist);
         } else {
           const deltaY = 25 - player.y;
           targetPitch = -Math.atan2(deltaY, 100);
         }
 
-        const velocityTilt = player.velocity * 0.015; 
+        const velocityTilt = player.velocity * 0.015;
         const totalTargetX = targetPitch + velocityTilt;
 
         camera.rotation.x += (totalTargetX - camera.rotation.x) * 0.1;
@@ -1717,7 +1748,7 @@
     // ==========================================
     // UI MANAGEMENT
     // ==========================================
-    function setGameState(newState) {
+    async function setGameState(newState) {
       gameState = newState;
       updateUI();
 
@@ -1726,7 +1757,7 @@
         // Leaderboard is always visible now
         if (inactivityTimer) clearTimeout(inactivityTimer);
       }
-      
+
       if (newState === GameState.PLAYING) {
         // Leaderboard stays visible
         startRecording();
@@ -1734,75 +1765,77 @@
       }
 
       if (newState === GameState.GAME_OVER) {
-        stopRecording();
+        // IMPORTANT: await stopRecording so FFmpeg finalizes the MP4 file
+        // before we try to link it to the score entry (rename on server)
+        await stopRecording();
         canRestart = false;
-        
+
         if (score === 0) {
-            // Auto-save zero score without asking for name
-            waitingForName = false;
-            submitGameScore("-");
-            setupRestartTimer();
+          // Auto-save zero score without asking for name
+          waitingForName = false;
+          await submitGameScore("-");
+          setupRestartTimer();
         } else {
-            // Ask for name if score > 0
-            waitingForName = true;
-            startInactivityTimer();
+          // Ask for name if score > 0
+          waitingForName = true;
+          startInactivityTimer();
         }
-        
+
         document.getElementById('leaderboard').classList.remove('hidden');
         updateGameOverUI();
       }
     }
-    
+
     async function handleZeroScoreSubmit() {
-        // Automatically submit score 0 with hidden name
-        try {
-            const response = await fetch('/api/scores', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    name: "-", 
-                    score: 0, 
-                    link_recording: true,
-                    recording_filename: currentRecordingFilename
-                })
-            });
-            
-            if (response.ok) {
-                // Success
-            }
-        } catch (e) {
-            console.error("Zero score auto-save failed", e);
+      // Automatically submit score 0 with hidden name
+      try {
+        const response = await fetch('/api/scores', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: "-",
+            score: 0,
+            link_recording: true,
+            recording_filename: currentRecordingFilename
+          })
+        });
+
+        if (response.ok) {
+          // Success
         }
-        
-        // Start restart timer logic
-        waitingForName = false;
-        canRestart = false;
-        document.getElementById('rechargingState').style.display = 'flex';
-        
-        setTimeout(() => {
-            canRestart = true;
-            gameOverTime = Date.now() - 2500;
-            updateGameOverUI();
-        }, 2000);
+      } catch (e) {
+        console.error("Zero score auto-save failed", e);
+      }
+
+      // Start restart timer logic
+      waitingForName = false;
+      canRestart = false;
+      document.getElementById('rechargingState').style.display = 'flex';
+
+      setTimeout(() => {
+        canRestart = true;
+        gameOverTime = Date.now() - 2500;
+        updateGameOverUI();
+      }, 2000);
     }
 
     function startInactivityTimer() {
-        if (inactivityTimer) clearTimeout(inactivityTimer);
-        inactivityTimer = setTimeout(() => {
-            // Timeout - skip saving and reset
-            console.log("Inactivity timeout - resetting");
-            waitingForName = false;
-            
-            // Clean up recording if needed (not saving)
-            // Reset to ready state
-            setGameState(GameState.START);
-        }, INACTIVITY_TIMEOUT);
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => {
+        // Timeout - skip saving and reset
+        console.log("Inactivity timeout - resetting");
+        waitingForName = false;
+
+        // Clean up recording if needed (not saving)
+        // Reset to ready state
+        setGameState(GameState.START);
+      }, INACTIVITY_TIMEOUT);
     }
 
     function resetInactivityTimer() {
-        if (gameState === GameState.GAME_OVER && waitingForName) {
-            startInactivityTimer();
-        }
+      if (gameState === GameState.GAME_OVER && waitingForName) {
+        startInactivityTimer();
+      }
     }
 
     function updateUI() {
@@ -1836,14 +1869,14 @@
         nameInputSection.classList.remove('hidden');
         rechargingState.style.display = 'none';
         readyToRestartState.classList.add('hidden');
-        
+
         // Autofocus
         setTimeout(() => {
-            document.getElementById('playerNameInput').focus();
+          document.getElementById('playerNameInput').focus();
         }, 50);
       } else {
         nameInputSection.classList.add('hidden');
-        
+
         if (!canRestart) {
           rechargingState.style.display = 'flex';
           readyToRestartState.classList.add('hidden');
@@ -1895,11 +1928,11 @@
       try {
         await initAudio();
         isInitialized = true;
-        
+
         // Update UI
         document.getElementById('initSection').classList.add('hidden');
         document.getElementById('readySection').classList.remove('hidden');
-        
+
         // Initialize pose controller
         initPoseController();
       } catch (e) {
@@ -1920,7 +1953,7 @@
     document.getElementById('startButton').addEventListener('click', handleInitialize);
     document.getElementById('restartButton').addEventListener('click', handleRestart);
     document.getElementById('submitNameButton').addEventListener('click', handleNameSubmit);
-    
+
     // Allow pressing Enter to submit name
     document.getElementById('playerNameInput').addEventListener('keypress', function (e) {
       resetInactivityTimer(); // Reset timer on typing
@@ -1928,7 +1961,7 @@
         handleNameSubmit();
       }
     });
-    
+
     // Also reset timer on any input change
     document.getElementById('playerNameInput').addEventListener('input', resetInactivityTimer);
 
@@ -1942,4 +1975,5 @@
     });
   </script>
 </body>
+
 </html>
